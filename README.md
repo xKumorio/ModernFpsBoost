@@ -7,7 +7,7 @@
 
 ## Скачать
 
-* **Прямая ссылка (последняя сборка CI):** [ModernFpsBoostBySoftikInquisitor(vk-miurawr).asi](https://github.com/xKumorio/ModernFpsBoost/releases/latest/download/ModernFpsBoostBySoftikInquisitor(vk-miurawr).asi)
+* **Прямая ссылка (последняя сборка CI):** [ModernFpsBoostBySoftikInquisitor.vk-miurawr.asi](https://github.com/xKumorio/ModernFpsBoost/releases/latest/download/ModernFpsBoostBySoftikInquisitor.vk-miurawr.asi)
 * **Страница релизов:** [Releases](https://github.com/xKumorio/ModernFpsBoost/releases)
 * **Сборки из исходников:** [GitHub Actions](https://github.com/xKumorio/ModernFpsBoost/actions)
 
