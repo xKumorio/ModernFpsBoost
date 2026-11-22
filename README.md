@@ -12,9 +12,15 @@
 * **Сборки из исходников:** [GitHub Actions](https://github.com/xKumorio/ModernFpsBoost/actions)
 
 ### Установка
-1. Поместите `ModernFpsBoostBySoftikInquisitor(vk-miurawr).asi` в корневую папку GTA:SA (рядом с `gta_sa.exe`).
+1. Поместите `ModernFpsBoostBySoftikInquisitor.vk-miurawr.asi` в корневую папку GTA:SA (рядом с `gta_sa.exe`).
 2. `ModernFpsBoost.ini` со всеми описаниями создастся автоматически при первом запуске.
 3. В игре нажмите **F9**, чтобы открыть меню настроек, живую статистику фиксов и встроенные профайлеры.
+
+## Скриншоты меню (F9)
+
+![Оптимизации](docs/screen_fixes.jpg)
+![Lua профайлер](docs/screen_lua_profiler.jpg)
+![Профайлер GTA и SA-MP](docs/screen_profiler.jpg)
 
 ## Основные оптимизации
 
