@@ -44,7 +44,7 @@ jobs:
           path: build/ModernFpsBoostBySoftikInquisitor(vk-miurawr).asi
           if-no-files-found: error
 
-      - name: Publish Tagged Release
+      - name: Publish Immutable Release
         if: startsWith(github.ref, 'refs/tags/v')
         shell: pwsh
         env:
@@ -52,19 +52,24 @@ jobs:
         run: |
           $tag = "${{ github.ref_name }}"
           $sha = "${{ github.sha }}"
+          $hash = "${{ steps.hash.outputs.sha256 }}"
           $runUrl = "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
           $file = "build\ModernFpsBoostBySoftikInquisitor(vk-miurawr).asi"
-          $notes = @"
-          **ModernFpsBoost $tag** — оптимизация FPS для GTA:SA 1.0 US и SA-MP `0.3.7 R1 / R2 / R3-1 / R4 / R5-1 / 0.3.DL-R1`.
-
-          ### Установка
-          1. Скачайте ``ModernFpsBoostBySoftikInquisitor.vk-miurawr.asi``.
-          2. Положите файл в корень папки с GTA:SA (рядом с ``gta_sa.exe``).
-          3. Меню настроек и профайлеров открывается в игре по клавише **F9**.
-
-          ### Проверка сборки из исходников
-          - **Commit:** ``$sha``
-          - **GitHub Actions Run:** $runUrl
-          - **SHA-256:** ``${{ steps.hash.outputs.sha256 }}``
-          "@
-          gh release create $tag $file --title "ModernFpsBoost $tag" --notes $notes --verify-tag
+          $bt = [char]96
+          $lines = @(
+            "**ModernFpsBoost $tag**: оптимизация FPS для GTA:SA 1.0 US и SA-MP ${bt}0.3.7 R1 / R2 / R3-1 / R4 / R5-1 / 0.3.DL-R1${bt}."
+            ""
+            "### Установка"
+            "1. Скачайте ${bt}ModernFpsBoostBySoftikInquisitor.vk-miurawr.asi${bt}."
+            "2. Положите файл в корень папки с GTA:SA (рядом с ${bt}gta_sa.exe${bt})."
+            "3. Меню настроек и профайлеров открывается в игре по клавише **F9**."
+            ""
+            "### Проверка сборки из исходников"
+            "- **Commit:** ${bt}$sha${bt}"
+            "- **GitHub Actions Run:** $runUrl"
+            "- **SHA-256:** ${bt}$hash${bt}"
+          )
+          [System.IO.File]::WriteAllLines("release_notes.md", $lines, [System.Text.UTF8Encoding]::new($false))
+          gh release create $tag --draft --title "ModernFpsBoost $tag" --notes-file release_notes.md --verify-tag
+          gh release upload $tag $file
+          gh release edit $tag --draft=false
