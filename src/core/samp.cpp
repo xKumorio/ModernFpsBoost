@@ -1,0 +1,50 @@
+// ModernFpsBoost - Copyright (c) 2026 Softik Inquisitor (https://vk.ru/miurawr). All rights reserved.
+// Copying, redistribution or reuse of this file without the author's permission is prohibited.
+#include "samp.h"
+
+#include "game.h"
+#include "plugin.h"
+
+int g_sampVersion = -1;
+SampLayout g_sl;
+
+// CNetGame::GetState (R1 samp+0x2E20: mov eax, [ecx+0x3BD]) and GAME_MODE_CONNECTED, read from each dll:
+// R1/R2 compare the state with 14 in 15 places, R3-1..DL with 5 (samp-api's enums agree).
+static const int kNetState[SAMP_VERSIONS][2] = {
+	{ 0x3BD, 14 }, { 0x3B9, 14 }, { 0x3CD, 5 }, { 0x3CD, 5 }, { 0x3CD, 5 }, { 0x3CD, 5 },
+};
+
+bool SampIdentify(HMODULE samp, DWORD *entry)
+{
+	auto nt = (IMAGE_NT_HEADERS *)((BYTE *)samp + ((IMAGE_DOS_HEADER *)samp)->e_lfanew);
+	*entry = nt->OptionalHeader.AddressOfEntryPoint;
+	for (int v = 0; v < SAMP_VERSIONS; v++)
+		if (kSampEntryPoints[v] == *entry) {
+			g_sampVersion = v;
+			g_sl = {
+				SampVal(S_POOL_LARGEST), SampVal(S_POOL_LOCAL), SampVal(S_POOL_INFO), SampVal(S_POOL_USED),
+				SampVal(S_INFO_REMOTE), SampVal(S_REMOTE_PED), SampVal(S_LOCAL_PED),
+				SampVal(S_NET_POOLS), SampVal(S_POOLS_PLAYER), SampVal(S_OBJPOOL_OBJS),
+				kNetState[v][0], kNetState[v][1],
+			};
+			return true;
+		}
+	return false;
+}
+
+const char *SampVersionName()
+{
+	return g_sampVersion >= 0 ? kSampVersionNames[g_sampVersion] : nullptr;
+}
+
+BYTE *SampAt(SampId id)
+{
+	return g_samp && SampHas(id) ? g_samp + SampVal(id) : nullptr;
+}
+
+BYTE *SampPlayerPool()
+{
+	BYTE **net = (BYTE **)SampAt(S_NETGAME);
+	BYTE *pools = net && *net ? *(BYTE **)(*net + g_sl.netPools) : nullptr;
+	return pools ? *(BYTE **)(pools + g_sl.poolsPlayer) : nullptr;
+}

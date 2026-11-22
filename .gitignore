@@ -1,0 +1,6 @@
+# ModernFpsBoost - Copyright (c) 2026 Softik Inquisitor (https://vk.ru/miurawr). All rights reserved.
+# Copying, redistribution or reuse of this file without the author's permission is prohibited.
+build/
+__pycache__/
+ref/
+*_d3d9.log

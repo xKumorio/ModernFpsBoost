@@ -1,0 +1,68 @@
+name: Build ModernFpsBoost
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup MSVC x86
+        uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x86
+
+      - name: Build ASI
+        shell: cmd
+        run: build.bat
+
+      - name: Compute SHA-256
+        id: hash
+        shell: pwsh
+        run: |
+          $file = "build\ModernFpsBoostBySoftikInquisitor(vk-miurawr).asi"
+          $sha = (Get-FileHash $file -Algorithm SHA256).Hash
+          $size = (Get-Item $file).Length
+          echo "sha256=$sha" >> $env:GITHUB_OUTPUT
+          echo "size=$size" >> $env:GITHUB_OUTPUT
+          Write-Host "Built $file ($size bytes), SHA-256: $sha"
+
+      - name: Upload Actions Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ModernFpsBoost
+          path: build/ModernFpsBoostBySoftikInquisitor(vk-miurawr).asi
+          if-no-files-found: error
+
+      - name: Publish Release Asset
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $file = "build\ModernFpsBoostBySoftikInquisitor(vk-miurawr).asi"
+          $notes = @"
+          **ModernFpsBoost v1.0** — оптимизация FPS для GTA:SA 1.0 US и SA-MP `0.3.7 R1 / R2 / R3-1 / R4 / R5-1 / 0.3.DL-R1`.
+
+          ### Установка
+          1. Скачайте ``ModernFpsBoostBySoftikInquisitor(vk-miurawr).asi``.
+          2. Положите файл в корень папки с GTA:SA (рядом с ``gta_sa.exe``).
+          3. Меню настроек и профайлеров открывается в игре по клавише **F9**.
+
+          **SHA-256:** ``${{ steps.hash.outputs.sha256 }}``
+          "@
+          $exists = gh release view v1.0 2>$null
+          if ($LASTEXITCODE -eq 0) {
+            gh release upload v1.0 $file --clobber
+            gh release edit v1.0 --notes $notes
+          } else {
+            gh release create v1.0 $file --title "ModernFpsBoost v1.0" --notes $notes --latest
+          }

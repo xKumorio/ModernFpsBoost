@@ -1,0 +1,41 @@
+// ModernFpsBoost - Copyright (c) 2026 Softik Inquisitor (https://vk.ru/miurawr). All rights reserved.
+// Copying, redistribution or reuse of this file without the author's permission is prohibited.
+#include "resource.h"
+#include <winver.h>
+
+// file properties of the .asi (Explorer > Properties > Details)
+VS_VERSION_INFO VERSIONINFO
+FILEVERSION 1,0,0,0
+PRODUCTVERSION 1,0,0,0
+FILEOS VOS_NT_WINDOWS32
+FILETYPE VFT_DLL
+BEGIN
+	BLOCK "StringFileInfo"
+	BEGIN
+		BLOCK "040904B0"
+		BEGIN
+			VALUE "CompanyName", "Softik Inquisitor"
+			VALUE "FileDescription", "ModernFpsBoost - FPS fixes for GTA SA + SA-MP"
+			VALUE "FileVersion", "1.0"
+			VALUE "InternalName", "ModernFpsBoost"
+			VALUE "LegalCopyright", "Copyright (c) 2026 Softik Inquisitor (https://vk.ru/miurawr). All rights reserved."
+			VALUE "OriginalFilename", "ModernFpsBoost.asi"
+			VALUE "ProductName", "ModernFpsBoost"
+			VALUE "ProductVersion", "1.0"
+			VALUE "Comments", "Author: Softik Inquisitor - https://vk.ru/miurawr"
+		END
+	END
+	BLOCK "VarFileInfo"
+	BEGIN
+		VALUE "Translation", 0x409, 1200
+	END
+END
+
+// default ModernFpsBoost.ini, written next to the .asi when it is missing (UTF-8)
+IDR_DEFAULT_INI RCDATA "ModernFpsBoost.ini"
+
+// menu background (JPEG)
+IDR_BACKGROUND RCDATA "background.jpg"
+
+// Lucide icons used by the menu (subset of third_party/lucide/lucide.ttf, see tools/gen_icons.py)
+IDR_ICONS RCDATA "lucide_menu.ttf"
