@@ -252,14 +252,17 @@ static void Start()
 	else Log("RadarBatch: the DrawMap call is not original - map and gang zones not batched");
 
 	static const BYTE kPrologue[] = { 0x55, 0x8B, 0xEC, 0x83, 0xE4, 0xF8 }; // push ebp; mov ebp, esp; and esp, -8
-	if (!memcmp((void *)kDrawBlips, kPrologue, 6)) {
+	if (SafeMemMatch((void *)kDrawBlips, kPrologue, 6)) {
 		g_blipsTramp = (BYTE *)VirtualAlloc(nullptr, 16, MEM_COMMIT | MEM_RESERVE, PAGE_EXECUTE_READWRITE);
-		memcpy(g_blipsTramp, kPrologue, 6);
-		g_blipsTramp[6] = 0xE9;
-		*(int32_t *)(g_blipsTramp + 7) = Rel32(g_blipsTramp + 6, (void *)(kDrawBlips + 6));
-		BYTE jmp[6] = { 0xE9, 0, 0, 0, 0, 0x90 };
-		*(int32_t *)(jmp + 1) = Rel32((BYTE *)kDrawBlips, hkDrawBlips);
-		if (PatchBytes(kDrawBlips, kPrologue, jmp, 6)) n++;
+		if (g_blipsTramp) {
+			memcpy(g_blipsTramp, kPrologue, 6);
+			g_blipsTramp[6] = 0xE9;
+			*(int32_t *)(g_blipsTramp + 7) = Rel32(g_blipsTramp + 6, (void *)(kDrawBlips + 6));
+			FlushInstructionCache(GetCurrentProcess(), g_blipsTramp, 11);
+			BYTE jmp[6] = { 0xE9, 0, 0, 0, 0, 0x90 };
+			*(int32_t *)(jmp + 1) = Rel32((BYTE *)kDrawBlips, hkDrawBlips);
+			if (PatchBytes(kDrawBlips, kPrologue, jmp, 6)) n++;
+		}
 	} else {
 		Log("RadarBatch: CRadar::DrawBlips is hooked by something else - blips not batched");
 	}

@@ -53,13 +53,27 @@ static void __cdecl hkDrawAreaOnRadar(const float *rect, const void *color, bool
 
 static bool Apply(BYTE *samp)
 {
+	if (!IsGta10US()) return true;
 	static const BYTE kMask[] = { 0x55, 0x8B, 0xEC, 0x83, 0xE4, 0xF8, 0x83, 0xEC, 0x6C }; // CRadar::DrawRadarMask as shipped
-	g_round = !memcmp((void *)kDrawRadarMask, kMask, sizeof(kMask)); // a square-radar mod changes the mask
+	g_round = SafeMemMatch((void *)kDrawRadarMask, kMask, sizeof(kMask)); // a square-radar mod changes the mask
 	static const BYTE kCall[] = { 0xB8, 0xD0, 0x53, 0x58, 0x00, 0xFF, 0xD0 }; // mov eax, 0x5853D0; call eax
-	BYTE *end = ModuleEnd((HMODULE)samp) - sizeof(kCall), *site = nullptr;
+	BYTE *modEnd = ModuleEnd((HMODULE)samp), *site = nullptr;
 	int found = 0;
-	for (BYTE *p = samp + 0x1000; p < end; p++)
-		if (p[0] == 0xB8 && !memcmp(p, kCall, sizeof(kCall))) site = p, found++;
+	if (modEnd && modEnd > samp + 0x1000 + sizeof(kCall)) {
+		BYTE *scanEnd = modEnd - sizeof(kCall);
+		for (BYTE *cur = samp + 0x1000; cur < scanEnd;) {
+			MEMORY_BASIC_INFORMATION mbi{};
+			if (!VirtualQuery(cur, &mbi, sizeof(mbi))) break;
+			BYTE *regEnd = (BYTE *)mbi.BaseAddress + mbi.RegionSize;
+			if (regEnd <= cur) break;
+			if (mbi.State == MEM_COMMIT && IsExecutableReadableProtect(mbi.Protect)) {
+				BYTE *lim = regEnd > scanEnd ? scanEnd : (regEnd > cur + sizeof(kCall) ? regEnd - sizeof(kCall) : cur);
+				for (BYTE *p = cur; p < lim; p++)
+					if (p[0] == 0xB8 && !memcmp(p, kCall, sizeof(kCall))) site = p, found++;
+			}
+			cur = regEnd;
+		}
+	}
 	if (found != 1) {
 		Log("GangZoneCull: %d DrawAreaOnRadar calls in samp.dll instead of 1 - skipped", found);
 		return true;

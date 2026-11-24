@@ -142,19 +142,23 @@ void SampStateBlockFixTick()
 	if (!g_fixSampStateBlockFix.active) return;
 
 	// CPlayerTags singleton: dev @ +0x00, m_pStates @ +0x04
-	if (g_playerTagsSlot && *g_playerTagsSlot) {
+	if (g_playerTagsSlot && IsReadableRange(g_playerTagsSlot, sizeof(BYTE *)) && *g_playerTagsSlot) {
 		BYTE *tags = *g_playerTagsSlot;
-		IDirect3DDevice9 *dev = *(IDirect3DDevice9 **)(tags + 0x00);
-		IDirect3DStateBlock9 **slot = (IDirect3DStateBlock9 **)(tags + 0x04);
-		TryHotSwap(dev, slot, "CPlayerTags");
+		if (IsReadableRange(tags, 0x08)) {
+			IDirect3DDevice9 *dev = *(IDirect3DDevice9 **)(tags + 0x00);
+			IDirect3DStateBlock9 **slot = (IDirect3DStateBlock9 **)(tags + 0x04);
+			TryHotSwap(dev, slot, "CPlayerTags");
+		}
 	}
 
 	// CDXUTDialogResourceManager singleton: m_pStateBlock @ +0x00, dev @ +0x20
-	if (g_dxutMgrSlot && *g_dxutMgrSlot) {
+	if (g_dxutMgrSlot && IsReadableRange(g_dxutMgrSlot, sizeof(BYTE *)) && *g_dxutMgrSlot) {
 		BYTE *mgr = *g_dxutMgrSlot;
-		IDirect3DDevice9 *dev = *(IDirect3DDevice9 **)(mgr + 0x20);
-		IDirect3DStateBlock9 **slot = (IDirect3DStateBlock9 **)(mgr + 0x00);
-		TryHotSwap(dev, slot, "CDXUTDialogResourceManager");
+		if (IsReadableRange(mgr, 0x24)) {
+			IDirect3DDevice9 *dev = *(IDirect3DDevice9 **)(mgr + 0x20);
+			IDirect3DStateBlock9 **slot = (IDirect3DStateBlock9 **)(mgr + 0x00);
+			TryHotSwap(dev, slot, "CDXUTDialogResourceManager");
+		}
 	}
 }
 
@@ -178,7 +182,7 @@ static bool Apply(BYTE *)
 
 	for (const Site &s : sites) {
 		BYTE *p = SampAt(s.id);
-		if (!p || memcmp(p, s.exp, 6) != 0) continue;
+		if (!SafeMemMatch(p, s.exp, 6)) continue;
 		patches[n][0] = 0xE8;
 		*(int32_t *)(patches[n] + 1) = Rel32(p, (const void *)hkCreateStateBlock);
 		patches[n][5] = 0x90;

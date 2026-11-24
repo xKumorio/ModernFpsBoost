@@ -31,8 +31,9 @@ static BYTE __cdecl hkHasCollisionLoaded(const float *pos, int area)
 
 static bool Apply(BYTE *)
 {
+	if (!IsGta10US()) return true;
 	BYTE *p = SampAt(S_COL_LOADED_SITE);
-	if (!p || p[0] != 0xBA || *(DWORD *)(p + 1) != kHasCollisionLoaded || p[5] != 0xFF || p[6] != 0xD2) {
+	if (!p || !IsReadableRange(p, 7) || p[0] != 0xBA || *(DWORD *)(p + 1) != kHasCollisionLoaded || p[5] != 0xFF || p[6] != 0xD2) {
 		Log("ColLoadedCache: the HasCollisionLoaded call is not original - skipped");
 		return true;
 	}

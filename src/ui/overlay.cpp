@@ -11,6 +11,7 @@
 #include "backends/imgui_impl_win32.h"
 
 #include "../../res/resource.h"
+#include "../core/game.h"
 #include "../core/ini.h"
 #include "../core/patch.h"
 #include "../core/plugin.h"
@@ -49,9 +50,10 @@ static bool g_useOuter;
 
 static HWND g_window;
 static WNDPROC g_prevProc;
+static bool g_isUnicodeWnd;
 static bool g_open;
 static float g_openAnim;
-static bool g_imgui, g_imguiFailed;
+static bool g_imgui, g_imguiFailed, g_overlayFaulted;
 static int g_cursorMode = CURSOR_NONE;
 static DWORD g_cursorAt;
 
@@ -138,14 +140,14 @@ static LRESULT CALLBACK WndProc(HWND w, UINT m, WPARAM wp, LPARAM lp)
 	} else if (g_open && g_imgui) {
 		ImGui_ImplWin32_WndProcHandler(w, m, wp, lp); // focus, keyboard layout, ...
 	}
-	return CallWindowProcW(g_prevProc, w, m, wp, lp);
+	return g_isUnicodeWnd ? CallWindowProcW(g_prevProc, w, m, wp, lp) : CallWindowProcA(g_prevProc, w, m, wp, lp);
 }
 
 static void SetSampCursor(int mode)
 {
 	void **gameVar = (void **)SampAt(S_GAME);
 	BYTE *setMode = SampAt(S_SET_CURSOR_MODE);
-	if (!gameVar || !*gameVar || !setMode) return;
+	if (!gameVar || !IsReadableRange(gameVar, sizeof(void *)) || !*gameVar || !setMode || !IsReadableRange(setMode, 4)) return;
 	((void(__thiscall *)(void *, int, BOOL))setMode)(*gameVar, mode, mode == CURSOR_NONE);
 }
 
@@ -363,8 +365,14 @@ static void OnFrame(IDirect3DDevice9 *device)
 	if (!g_prevProc) {
 		D3DDEVICE_CREATION_PARAMETERS params = {};
 		if (SUCCEEDED(device->GetCreationParameters(&params))) g_window = params.hFocusWindow;
-		if (!IsWindow(g_window)) g_window = *(HWND *)kWindowPtr;
-		if (g_window) g_prevProc = (WNDPROC)SetWindowLongPtrW(g_window, GWLP_WNDPROC, (LONG_PTR)WndProc);
+		if (!IsWindow(g_window) && IsGta10US() && IsReadableRange((void *)kWindowPtr, sizeof(HWND)))
+			g_window = *(HWND *)kWindowPtr;
+		if (IsWindow(g_window)) {
+			g_isUnicodeWnd = (IsWindowUnicode(g_window) != FALSE);
+			g_prevProc = g_isUnicodeWnd
+				? (WNDPROC)SetWindowLongPtrW(g_window, GWLP_WNDPROC, (LONG_PTR)WndProc)
+				: (WNDPROC)SetWindowLongPtrA(g_window, GWLP_WNDPROC, (LONG_PTR)WndProc);
+		}
 		if (!g_prevProc) {
 			static bool logged;
 			if (!logged) Log("Menu: input attach failed (window %p, error %lu)", g_window, GetLastError());
@@ -372,7 +380,9 @@ static void OnFrame(IDirect3DDevice9 *device)
 			return;
 		}
 		Log("Menu: input attached to window %p", g_window);
-		g_msgHook = SetWindowsHookExW(WH_GETMESSAGE, MsgHook, nullptr, GetWindowThreadProcessId(g_window, nullptr));
+		g_msgHook = g_isUnicodeWnd
+			? SetWindowsHookExW(WH_GETMESSAGE, MsgHook, nullptr, GetWindowThreadProcessId(g_window, nullptr))
+			: SetWindowsHookExA(WH_GETMESSAGE, MsgHook, nullptr, GetWindowThreadProcessId(g_window, nullptr));
 		if (!g_msgHook) Log("Menu: message hook failed (%lu), keys reach the game first", GetLastError());
 	}
 	UpdateCursor();
@@ -432,6 +442,18 @@ static void OnFrame(IDirect3DDevice9 *device)
 	device->EndScene();
 }
 
+static void OnFrameSafe(IDirect3DDevice9 *device)
+{
+	if (g_overlayFaulted || !device) return;
+	__try {
+		OnFrame(device);
+	} __except (EXCEPTION_EXECUTE_HANDLER) {
+		g_overlayFaulted = true;
+		g_open = false;
+		Log("Menu: exception 0x%08lX in overlay frame - menu disabled, FPS fixes keep running", GetExceptionCode());
+	}
+}
+
 // ---------------------------------------------------------------- chat
 
 // One line in the SA-MP chat a few seconds after the chat exists. The chat takes cp1251 text.
@@ -442,7 +464,9 @@ static void GreetInChat()
 	static DWORD connectedAt;
 	if (!g_samp) return;
 	BYTE **net = (BYTE **)SampAt(S_NETGAME);
-	bool connected = net && *net && *(int *)(*net + g_sl.netState) == g_sl.netConnected;
+	bool connected = net && IsReadableRange(net, sizeof(BYTE *)) && *net &&
+	                 IsReadableRange(*net + g_sl.netState, sizeof(int)) &&
+	                 *(int *)(*net + g_sl.netState) == g_sl.netConnected;
 	if (!connected) {
 		done = false;
 		connectedAt = 0;
@@ -454,8 +478,8 @@ static void GreetInChat()
 	if (now - connectedAt < 3000) return;
 	void **chatVar = (void **)SampAt(S_CHAT);
 	BYTE *addMessage = SampAt(S_CHAT_ADD_MESSAGE);
-	void *chat = chatVar ? *chatVar : nullptr;
-	if (!chat || !addMessage) return;
+	void *chat = (chatVar && IsReadableRange(chatVar, sizeof(void *))) ? *chatVar : nullptr;
+	if (!chat || !addMessage || !IsReadableRange(addMessage, 4)) return;
 	done = true;
 
 	char keyName[64] = "F9";
@@ -522,11 +546,11 @@ static HRESULT __stdcall hkPresent(IDirect3DDevice9 *dev, const RECT *a, const R
 		g_realSeen = true;
 		if (!g_frameDrawn) {
 			g_frameDrawn = true;
-			OnFrame(dev);
+			OnFrameSafe(dev);
 		}
 		return oPresent(dev, a, b, w, r);
 	}
-	OnFrame(dev);
+	OnFrameSafe(dev);
 	SpikePresentBegin();
 	HRESULT hr = oPresent(dev, a, b, w, r);
 	SpikePresentEnd(g_openAnim > 0);
@@ -582,7 +606,7 @@ static HRESULT __stdcall hkPresentOuter(IDirect3DDevice9 *dev, const RECT *a, co
 	g_realSeen = false;
 	if (g_singleHook || g_useOuter) {
 		g_frameDrawn = true;
-		OnFrame(g_realDevice ? g_realDevice : dev);
+		OnFrameSafe(g_realDevice ? g_realDevice : dev);
 	}
 	SpikePresentBegin();
 	HRESULT hr = oPresentOuter(dev, a, b, w, r);
@@ -609,13 +633,21 @@ static HRESULT __stdcall hkPresentOuter(IDirect3DDevice9 *dev, const RECT *a, co
 
 static DWORD WINAPI HookThread(LPVOID)
 {
+	if (!IsGta10US() || !IsReadableRange((void *)kDevicePtr, sizeof(void *))) {
+		Log("Menu: gta_sa.exe is not 1.0 US - menu overlay skipped");
+		return 0;
+	}
 	IDirect3DDevice9 *dev = nullptr;
 	for (int i = 0; i < 3000 && !(dev = *(IDirect3DDevice9 **)kDevicePtr); i++) Sleep(100);
 	if (!dev) return 0;
 	Sleep(1000); // SA-MP / SAMPFUNCS put their proxies in when the device is created
 	dev = *(IDirect3DDevice9 **)kDevicePtr;
-	g_outerVt = *(void ***)dev;
+	if (!dev || !IsReadableRange(dev, sizeof(void *))) return 0;
+	void **vt = *(void ***)dev;
+	if (!vt || !IsReadableRange(vt, (kVtPresent + 1) * sizeof(void *))) return 0;
+	g_outerVt = vt;
 	oPresentOuter = (Present_t)g_outerVt[kVtPresent];
+	if (!oPresentOuter) return 0;
 	void *hook = (void *)hkPresentOuter;
 	if (PatchBytes((DWORD)&g_outerVt[kVtPresent], nullptr, &hook, 4))
 		Log("Menu: Present hooked, key 0x%02X opens the menu", g_ui.key);

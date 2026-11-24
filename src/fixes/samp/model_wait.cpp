@@ -29,7 +29,8 @@ static int PatchPartWait(BYTE *samp, BYTE *from, BYTE *to)
 	int patched = 0;
 	for (BYTE *p = from; p < to; p++) {
 		if (*p != loop[0] || memcmp(p, loop, sizeof(loop))) continue;
-		for (BYTE *m = p - 6; m > p - 0x40; m--) {
+		BYTE *minM = (p - from > 0x40) ? (p - 0x40) : from;
+		for (BYTE *m = p - 6; m >= minM; m--) {
 			if (m[0] != 0x8B || m[1] != 0x1D) continue;
 			BYTE mov[6] = { 0xBB, 0, 0, 0, 0, 0x90 }; // mov ebx, LoadNow; nop
 			*(DWORD *)(mov + 1) = (DWORD)LoadNow;
@@ -50,21 +51,40 @@ static bool Apply(BYTE *samp)
 	// push 1; call edi (Sleep); inc esi; cmp esi, 15; je
 	static const BYTE loop[] = { 0x6A, 0x01, 0xFF, 0xD7, 0x46, 0x83, 0xFE, 0x0F, 0x74 };
 	static const BYTE nops[] = { 0x90, 0x90, 0x90, 0x90 };
-	auto nt = (IMAGE_NT_HEADERS *)(samp + ((IMAGE_DOS_HEADER *)samp)->e_lfanew);
+	if (!samp || !IsReadableRange(samp, sizeof(IMAGE_DOS_HEADER))) return true;
+	auto dos = (IMAGE_DOS_HEADER *)samp;
+	if (dos->e_magic != IMAGE_DOS_SIGNATURE) return true;
+	BYTE *ntPtr = samp + dos->e_lfanew;
+	if (!IsReadableRange(ntPtr, sizeof(IMAGE_NT_HEADERS))) return true;
+	auto nt = (IMAGE_NT_HEADERS *)ntPtr;
+	if (nt->Signature != IMAGE_NT_SIGNATURE || nt->FileHeader.NumberOfSections == 0) return true;
 	IMAGE_SECTION_HEADER *code = IMAGE_FIRST_SECTION(nt);
-	BYTE *from = samp + code->VirtualAddress, *to = from + code->Misc.VirtualSize - sizeof(loop);
+	if (!IsReadableRange(code, sizeof(IMAGE_SECTION_HEADER)) || code->Misc.VirtualSize <= sizeof(loop)) return true;
+	BYTE *secStart = samp + code->VirtualAddress;
+	BYTE *secEnd = secStart + code->Misc.VirtualSize;
 	int found = 0, patched = 0;
-	for (BYTE *p = from; p < to; p++)
-		if (*p == loop[0] && !memcmp(p, loop, sizeof(loop))) {
-			found++;
-			if (PatchBytes((DWORD)p, loop, nops, sizeof(nops))) {
-				patched++;
-				Log("SampModelWait: the model wait at samp+%X no longer sleeps", (DWORD)(p - samp));
-			}
+	for (BYTE *cur = secStart; cur < secEnd;) {
+		MEMORY_BASIC_INFORMATION mbi{};
+		if (!VirtualQuery(cur, &mbi, sizeof(mbi))) break;
+		BYTE *regEnd = (BYTE *)mbi.BaseAddress + mbi.RegionSize;
+		if (regEnd <= cur) break;
+		BYTE *end = regEnd > secEnd ? secEnd : regEnd;
+		if (mbi.State == MEM_COMMIT && IsExecutableReadableProtect(mbi.Protect) && end > cur + sizeof(loop)) {
+			BYTE *to = end - sizeof(loop);
+			for (BYTE *p = cur; p < to; p++)
+				if (*p == loop[0] && !memcmp(p, loop, sizeof(loop))) {
+					found++;
+					if (PatchBytes((DWORD)p, loop, nops, sizeof(nops))) {
+						patched++;
+						Log("SampModelWait: the model wait at samp+%X no longer sleeps", (DWORD)(p - samp));
+					}
+				}
+			int parts = IsGta10US() ? PatchPartWait(samp, cur, to) : 0;
+			patched += parts;
+			found += parts;
 		}
-	int parts = PatchPartWait(samp, from, to);
-	patched += parts;
-	found += parts;
+		cur = regEnd;
+	}
 	if (!found) Log("SampModelWait: this samp.dll has no such wait loop - nothing to do");
 	g_fixSampModelWait.active = patched > 0;
 	return true;

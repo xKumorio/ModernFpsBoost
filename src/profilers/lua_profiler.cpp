@@ -136,6 +136,7 @@ static void LuaCharge(LuaStat *s, const LuaEntry &e, LONGLONG ticks)
 
 static LuaStat *LuaStatFor(void *L)
 {
+	if (!L) return nullptr;
 	void *G = *(void **)((BYTE *)L + 8);
 	for (int i = 0; i < g_luaN; i++)
 		if (g_lua[i].G == G) return &g_lua[i];

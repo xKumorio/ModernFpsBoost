@@ -32,6 +32,7 @@ static D3DCOLOR ToD3DColor(ImU32 color)
 
 static IDirect3DTexture9 *CreateTexture(const uint8_t *rgba, int width, int height, bool swapRB)
 {
+	if (!g_device || !rgba || width <= 0 || height <= 0) return nullptr;
 	IDirect3DTexture9 *tex = nullptr;
 	if (FAILED(g_device->CreateTexture(width, height, 1, 0, D3DFMT_A8R8G8B8, D3DPOOL_MANAGED, &tex, nullptr)) || !tex)
 		return nullptr;
@@ -89,12 +90,13 @@ IDirect3DTexture9 *LoadResourceTexture(int id, int &width, int &height)
 	    SUCCEEDED(decoder->GetFrame(0, &frame)) && SUCCEEDED(factory->CreateFormatConverter(&converter)) &&
 	    SUCCEEDED(converter->Initialize(frame, GUID_WICPixelFormat32bppBGRA, WICBitmapDitherTypeNone, nullptr, 0.0, WICBitmapPaletteTypeCustom))) {
 		UINT w = 0, hgt = 0;
-		converter->GetSize(&w, &hgt);
-		std::vector<uint8_t> pixels((size_t)w * hgt * 4);
-		if (SUCCEEDED(converter->CopyPixels(nullptr, w * 4, (UINT)pixels.size(), pixels.data()))) {
-			tex = CreateTexture(pixels.data(), (int)w, (int)hgt, false);
-			width = (int)w;
-			height = (int)hgt;
+		if (SUCCEEDED(converter->GetSize(&w, &hgt)) && w > 0 && hgt > 0 && w <= 4096 && hgt <= 4096) {
+			std::vector<uint8_t> pixels((size_t)w * hgt * 4);
+			if (SUCCEEDED(converter->CopyPixels(nullptr, w * 4, (UINT)pixels.size(), pixels.data()))) {
+				tex = CreateTexture(pixels.data(), (int)w, (int)hgt, false);
+				width = (int)w;
+				height = (int)hgt;
+			}
 		}
 	}
 	if (converter) converter->Release();
@@ -205,6 +207,7 @@ void RenderDrawData(ImDrawData *data)
 	const ImVec2 origin = data->DisplayPos;
 	for (int n = 0; n < data->CmdListsCount; ++n) {
 		const ImDrawList *list = data->CmdLists[n];
+		if (!list || list->VtxBuffer.Size <= 0) continue;
 		g_vertices.resize(list->VtxBuffer.Size);
 		for (int i = 0; i < list->VtxBuffer.Size; ++i) {
 			const ImDrawVert &src = list->VtxBuffer[i];

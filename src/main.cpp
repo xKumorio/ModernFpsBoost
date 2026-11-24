@@ -18,7 +18,7 @@ static DWORD WINAPI AttachThread(LPVOID)
 		Sleep(250);
 		HMODULE samp = GetModuleHandleA("samp.dll");
 		if (!samp) continue;
-		DWORD entry;
+		DWORD entry = 0;
 		if (!SampIdentify(samp, &entry)) {
 			Log("samp.dll of an unknown version (entry %08lX) - SA-MP fixes off, GTA fixes and the menu work", entry);
 			return 0;

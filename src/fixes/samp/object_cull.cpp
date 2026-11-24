@@ -54,6 +54,7 @@ static void __fastcall hkObjectDraw(BYTE *obj)
 
 static bool Apply(BYTE *samp)
 {
+	if (!IsGta10US()) return true;
 	BYTE *sites[] = { SampAt(S_OBJDRAW_SITE), SampAt(S_OBJDRAW_LAST_SITE) };
 	g_draw = (DWORD)SampAt(S_OBJ_DRAW);
 	g_updatePos = (DWORD)SampAt(S_OBJ_UPDATE_POS);

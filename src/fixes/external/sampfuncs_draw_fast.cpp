@@ -121,7 +121,7 @@ static void RefreshSfHandlers(BYTE *obj)
 
 void SampfuncsDrawFastTick()
 {
-	if (!g_sfTable) return;
+	if (!g_sfTable || !IsReadableRange((void *)g_sfTable, sizeof(void *))) return;
 	BYTE *obj = *(BYTE **)g_sfTable;
 	if (obj) RefreshSfHandlers(obj);
 }
@@ -149,14 +149,16 @@ static void PatchProxyVtable(BYTE *sf)
 	const int nm = sizeof(methods);
 	memset(g_sfHas, 1, sizeof(g_sfHas));
 	DWORD *vt = (DWORD *)(sf + 0xD15CC); // SF's IDirect3DDevice9 proxy vtable
-	if (vt[82] != (DWORD)sf + 0x338A9) {
+	DWORD realVar = (DWORD)sf + 0x11723C; // SF's pointer to the real device
+	if (!InModule((HMODULE)sf, vt) || !IsReadableRange(vt, 128 * sizeof(DWORD)) ||
+	    !InModule((HMODULE)sf, (void *)realVar) || !IsReadableRange((void *)realVar, 4) ||
+	    vt[82] != (DWORD)sf + 0x338A9) {
 		Log("SampfuncsDrawFast: proxy vtable not found - only DrawIndexedPrimitive");
 		return;
 	}
 	static DWORD orig[128];
 	BYTE *code = (BYTE *)VirtualAlloc(nullptr, 64 * nm, MEM_COMMIT | MEM_RESERVE, PAGE_EXECUTE_READWRITE);
 	if (!code) return;
-	DWORD realVar = (DWORD)sf + 0x11723C; // SF's pointer to the real device
 	int done = 0;
 	for (int k = 0; k < nm; k++) {
 		int i = methods[k];
@@ -187,7 +189,9 @@ static bool Apply(BYTE *)
 	if (!sf) return true; // no SAMPFUNCS (it loads before samp.dll): nothing to do
 	BYTE *site = sf + 0x338E8; // push 0x52; call dispatcher (after mov ecx, [event table])
 	DWORD table = (DWORD)sf + 0x115854;
-	if (site[-6] != 0x8B || site[-5] != 0x0D || *(DWORD *)(site - 4) != table || site[0] != 0x6A || site[1] != 0x52 ||
+	if (!InModule((HMODULE)sf, site + 8) || !IsReadableRange(site - 6, 16) ||
+	    !InModule((HMODULE)sf, (void *)table) || !IsReadableRange((void *)table, 4) ||
+	    site[-6] != 0x8B || site[-5] != 0x0D || *(DWORD *)(site - 4) != table || site[0] != 0x6A || site[1] != 0x52 ||
 	    !IsCallTo(site + 2, (DWORD)sf + 0x32B48)) {
 		Log("SampfuncsDrawFast: SAMPFUNCS.asi is another version - skipped");
 		return true;

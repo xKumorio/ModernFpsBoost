@@ -170,9 +170,10 @@ static void Report(std::string &out, double secs)
 static bool Apply(BYTE *)
 {
 	PlayOffTheGameThread();
-	BYTE *f = (BYTE *)GetProcAddress(GetModuleHandleA("kernelbase.dll"), "Sleep");
+	HMODULE kb = GetModuleHandleA("kernelbase.dll");
+	BYTE *f = kb ? (BYTE *)GetProcAddress(kb, "Sleep") : nullptr;
 	static const BYTE pad[] = { 0xCC, 0xCC, 0xCC, 0xCC, 0xCC }, nop[] = { 0x90, 0x90, 0x90, 0x90, 0x90 };
-	if (!f || f[0] != 0x8B || f[1] != 0xFF || (memcmp(f - 5, pad, 5) && memcmp(f - 5, nop, 5))) {
+	if (!f || !IsReadableRange(f - 5, 7) || f[0] != 0x8B || f[1] != 0xFF || (memcmp(f - 5, pad, 5) && memcmp(f - 5, nop, 5))) {
 		Log("AudioSleepFix: KernelBase!Sleep is not hot-patchable - skipped");
 		return true;
 	}

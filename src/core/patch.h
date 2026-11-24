@@ -23,13 +23,23 @@ DWORD *CallChainNext(BYTE *site);
 // Points an import of mod (from dll) at hook; the old pointer goes to *orig.
 bool PatchIat(HMODULE mod, const char *dll, const char *fn, void *hook, void **orig);
 
+bool IsReadableProtect(DWORD protect);
+bool IsExecutableReadableProtect(DWORD protect);
+bool IsReadableRange(const void *addr, size_t size);
+bool SafeReadBytes(const void *src, void *dst, size_t size);
+
+static inline bool SafeMemMatch(const void *addr, const void *expect, size_t n)
+{
+	return addr && expect && n && IsReadableRange(addr, n) && memcmp(addr, expect, n) == 0;
+}
+
 bool InModule(HMODULE m, const void *p);
 BYTE *ModuleEnd(HMODULE m);
 
 // site is E8 rel32 calling target
 static inline bool IsCallTo(const BYTE *site, DWORD target)
 {
-	return site[0] == 0xE8 && (DWORD)(site + 5) + *(const int32_t *)(site + 1) == target;
+	return site && IsReadableRange(site, 5) && site[0] == 0xE8 && (DWORD)(site + 5) + *(const int32_t *)(site + 1) == target;
 }
 
 // rel32 for an E8/E9 at site jumping to dest

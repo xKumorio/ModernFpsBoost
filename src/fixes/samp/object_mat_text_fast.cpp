@@ -47,13 +47,13 @@ static bool Apply(BYTE *)
 {
 	BYTE *callSite = SampAt(S_OBJ_MATTEXT_SITE);
 	BYTE *target   = SampAt(S_OBJ_MATTEXT_FN);
-	if (!callSite || !target || callSite[0] != 0xE8 || callSite + 5 + *(int32_t *)(callSite + 1) != target) {
+	if (!callSite || !target || !IsCallTo(callSite, (DWORD)target)) {
 		Log("ObjectMatTextFast: call site mismatch on %s - skipped", SampVersionName());
 		return true;
 	}
 
 	static const BYTE kExpect[] = { 0x83, 0xEC, 0x08, 0x53, 0x55, 0x56, 0x8B, 0xE9, 0x57, 0x8D, 0xBD, 0xDB, 0x02, 0x00, 0x00 };
-	if (memcmp(target, kExpect, sizeof(kExpect)) != 0) {
+	if (!SafeMemMatch(target, kExpect, sizeof(kExpect))) {
 		Log("ObjectMatTextFast: prologue mismatch on %s - skipped", SampVersionName());
 		return true;
 	}

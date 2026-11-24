@@ -46,7 +46,7 @@ static bool Apply(BYTE *samp)
 	int np = 0;
 	BYTE *target = SampAt(S_UNFUCK);
 	static const BYTE expect[] = { 0x51, 0x8B, 0x4C, 0x24, 0x0C, 0x8B, 0x54, 0x24, 0x08, 0x8D, 0x04, 0x24, 0x50, 0x6A, 0x40 };
-	if (!target || memcmp(target, expect, sizeof(expect))) {
+	if (!SafeMemMatch(target, expect, sizeof(expect))) {
 		Log("UnprotectCache: UnFuck is not original - skipped");
 		return true;
 	}

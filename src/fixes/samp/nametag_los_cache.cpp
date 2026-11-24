@@ -57,10 +57,11 @@ static bool Apply(BYTE *samp)
 	int done = 0;
 	for (SampId id : kSampLosSites) {
 		BYTE *site = SampAt(id);
-		if (!site || !g_sampScriptCommand) continue;
+		if (!site || !g_sampScriptCommand || !IsReadableRange(site - 5, 13)) continue;
 		DWORD cmd = *(DWORD *)(site - 4); // push imm32, already relocated by the loader
 		bool ok = site[-5] == 0x68 && IsCallTo(site, g_sampScriptCommand) &&
-		          site[5] == 0x83 && site[6] == 0xC4 && site[7] == 0x48 && *(WORD *)cmd == 0x06BD;
+		          site[5] == 0x83 && site[6] == 0xC4 && site[7] == 0x48 &&
+		          IsReadableRange((void *)cmd, 2) && *(WORD *)cmd == 0x06BD;
 		if (!ok) {
 			Log("NametagLOSCache: samp+%05lX is not the expected 06BD call - skipped", (DWORD)(site - samp));
 			continue;

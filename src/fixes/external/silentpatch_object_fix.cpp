@@ -33,9 +33,7 @@ static void TryPatch(bool finalTry)
 
 	g_done = true;
 	BYTE *fn = (BYTE *)(0x59F185 + *(const int32_t *)(entry + 1));
-	MEMORY_BASIC_INFORMATION mbi{};
-	if (!VirtualQuery(fn, &mbi, sizeof(mbi)) || mbi.State != MEM_COMMIT ||
-	    (DWORD)fn + 0x1B0 > (DWORD)mbi.BaseAddress + mbi.RegionSize) {
+	if (!IsReadableRange(fn, 0x1B0)) {
 		Log("SilentPatchObjectFix: target outside readable region - skipped");
 		return;
 	}

@@ -3,6 +3,7 @@
 #include "samp.h"
 
 #include "game.h"
+#include "patch.h"
 #include "plugin.h"
 
 int g_sampVersion = -1;
@@ -16,7 +17,13 @@ static const int kNetState[SAMP_VERSIONS][2] = {
 
 bool SampIdentify(HMODULE samp, DWORD *entry)
 {
-	auto nt = (IMAGE_NT_HEADERS *)((BYTE *)samp + ((IMAGE_DOS_HEADER *)samp)->e_lfanew);
+	if (!samp || !entry || !IsReadableRange(samp, sizeof(IMAGE_DOS_HEADER))) return false;
+	auto dos = (IMAGE_DOS_HEADER *)samp;
+	if (dos->e_magic != IMAGE_DOS_SIGNATURE) return false;
+	BYTE *ntPtr = (BYTE *)samp + dos->e_lfanew;
+	if (!IsReadableRange(ntPtr, sizeof(IMAGE_NT_HEADERS))) return false;
+	auto nt = (IMAGE_NT_HEADERS *)ntPtr;
+	if (nt->Signature != IMAGE_NT_SIGNATURE) return false;
 	*entry = nt->OptionalHeader.AddressOfEntryPoint;
 	for (int v = 0; v < SAMP_VERSIONS; v++)
 		if (kSampEntryPoints[v] == *entry) {

@@ -86,7 +86,8 @@ static bool Apply(BYTE *)
 	g_plExit = (DWORD)SampAt(S_PLAYER_LOOP_EXIT);
 	g_plUsed = g_sl.poolUsed;
 	// head, exit (jae target), GetAt + Process calls and the frame slots must all be the original ones
-	bool ok = at && call && g_plGetAt && g_plProcess && g_plExit && !memcmp(at, expect, sizeof(expect)) &&
+	bool ok = at && call && g_plGetAt && g_plProcess && g_plExit && IsReadableRange(at, 7) && IsReadableRange(call, 12) &&
+	          SafeMemMatch(at, expect, sizeof(expect)) &&
 	          (DWORD)(at + 7 + (int8_t)at[6]) == g_plExit && IsCallTo(call, g_plGetAt) && call[5] == 0x8B && call[6] == 0xC8 &&
 	          IsCallTo(call + 7, g_plProcess) && SampVal(S_PLAYER_LOOP_IDX) == -0x1C && SampVal(S_PLAYER_LOOP_TRY) == -4;
 	if (!ok) {

@@ -59,7 +59,7 @@ static bool Apply(BYTE *samp)
 	// 1. SA-MP render hook (R1..R5, 0.3.DL): 6-byte instruction right before `push VK_F5; call esi`
 	//    loads ESI = GetAsyncKeyState (packed 6-byte call thunk on R1/R2, `mov esi, [IAT]` on R3..DL).
 	BYTE *pF5 = SampAt(S_RENDER_HOOK_F5);
-	if (pF5) {
+	if (pF5 && IsReadableRange(pF5 - 6, 13)) {
 		BYTE *pLoad = pF5 - 6;
 		static const BYTE exF5[] = { 0x6A, 0x74, 0xFF, 0xD6, 0x66, 0x85, 0xC0 };
 		const bool validLoad = (pLoad[0] == 0x8B && pLoad[1] == 0x35) ||

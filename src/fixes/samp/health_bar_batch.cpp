@@ -172,7 +172,7 @@ static bool Apply(BYTE *)
 	const float *mp = (const float *)SampAt(S_MAT_PROJ);
 
 	if (!pBegin || !pEnd || !pDraw || !mv || !mp ||
-	    memcmp(pBegin, exBegin, 6) != 0 || memcmp(pEnd, exEnd, 6) != 0 || memcmp(pDraw, exDraw, 7) != 0) {
+	    !SafeMemMatch(pBegin, exBegin, 6) || !SafeMemMatch(pEnd, exEnd, 6) || !SafeMemMatch(pDraw, exDraw, 7)) {
 		Log("HealthBarBatch: CPlayerTags signatures changed on %s - skipped", SampVersionName());
 		return true;
 	}

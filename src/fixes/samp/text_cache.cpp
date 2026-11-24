@@ -71,6 +71,37 @@ struct KeyHash {
 static std::unordered_map<std::string, Entry, KeyHash> g_cache;
 static std::unordered_map<void *, std::vector<std::string>> g_fontKeys;
 static std::string g_key;
+
+struct L1Slot {
+	uint64_t hash64;
+	const std::string *key;
+	Entry *entry;
+};
+static const size_t kL1Mask = 2047;
+static L1Slot g_l1[kL1Mask + 1];
+
+static inline uint64_t HashParts64(const void *hdr, size_t hdrLen, const void *str, size_t strLen)
+{
+	auto mix = [](uint64_t h, const BYTE *p, size_t n) -> uint64_t {
+		for (; n >= 4; n -= 4, p += 4) {
+			uint32_t v = *(const uint32_t *)p;
+			h ^= v;
+			h *= 0x100000001B3ULL;
+		}
+		for (; n; n--, p++) {
+			h ^= *p;
+			h *= 0x100000001B3ULL;
+		}
+		return h;
+	};
+	uint64_t h = 0xCBF29CE484222325ULL ^ (uint64_t)(hdrLen + strLen);
+	h = mix(h, (const BYTE *)hdr, hdrLen);
+	h = mix(h, (const BYTE *)str, strLen);
+	h ^= h >> 33;
+	h *= 0xFF51AFD7ED558CCDULL;
+	h ^= h >> 33;
+	return h;
+}
 static bool  g_broken;
 static int   g_mismatches;
 static DWORD g_hits, g_misses, g_bypass, g_checks, g_lastStats;
@@ -190,6 +221,7 @@ static Device_t    oOnLost, oOnReset;
 static void Purge(const char *why)
 {
 	if (!g_cache.empty() && g_statsSeconds) Log("cache cleared (%s), %u entries", why, (unsigned)g_cache.size());
+	memset(g_l1, 0, sizeof(g_l1));
 	g_cache.clear();
 	g_fontKeys.clear();
 	g_seen.clear();
@@ -200,6 +232,7 @@ static void PurgeFont(void *font)
 {
 	auto it = g_fontKeys.find(font);
 	if (it == g_fontKeys.end()) return;
+	memset(g_l1, 0, sizeof(g_l1));
 	for (const std::string &k : it->second) g_cache.erase(k);
 	g_fontKeys.erase(it);
 }
@@ -303,14 +336,33 @@ static INT CachedDrawText(Orig orig, void *font, void *sprite, const Ch *str, IN
 	LONG w, h;
 	KeyRectSize(fmt, rc, w, h);
 	struct { void *font; DWORD fmt; LONG w, h; BYTE wide, hasSprite; } hdr = { font, fmt, w, h, sizeof(Ch) == 2, sprite != nullptr };
-	g_key.clear();
-	g_key.append((const char *)&hdr, sizeof(hdr));
-	g_key.append((const char *)str, len * sizeof(Ch));
+	const size_t strBytes = (size_t)len * sizeof(Ch);
+	const size_t keyLen = sizeof(hdr) + strBytes;
+	const uint64_t h64 = HashParts64(&hdr, sizeof(hdr), str, strBytes);
+	L1Slot &slot = g_l1[(size_t)h64 & kL1Mask];
 
 	const RECT in = *rc;
-	auto it = g_cache.find(g_key);
-	if (it != g_cache.end()) {
-		Entry &e = it->second;
+	Entry *foundEntry = nullptr;
+	const std::string *foundKey = nullptr;
+	if (slot.entry && slot.hash64 == h64 && slot.key->size() == keyLen &&
+	    memcmp(slot.key->data(), &hdr, sizeof(hdr)) == 0 &&
+	    (strBytes == 0 || memcmp(slot.key->data() + sizeof(hdr), str, strBytes) == 0)) {
+		foundEntry = slot.entry;
+		foundKey = slot.key;
+	} else {
+		g_key.clear();
+		g_key.append((const char *)&hdr, sizeof(hdr));
+		g_key.append((const char *)str, strBytes);
+		auto it = g_cache.find(g_key);
+		if (it != g_cache.end()) {
+			foundEntry = &it->second;
+			foundKey = &it->first;
+			slot = { h64, foundKey, foundEntry };
+		}
+	}
+
+	if (foundEntry) {
+		Entry &e = *foundEntry;
 		LONG x0, y0;
 		Origin(fmt, in, e.W, e.H, x0, y0);
 		const RECT out = { x0, y0, x0 + e.W, y0 + e.H };
@@ -335,7 +387,11 @@ static INT CachedDrawText(Orig orig, void *font, void *sprite, const Ch *str, IN
 				    want.left, want.top, want.right, want.bottom, r2.left, r2.top, r2.right, r2.bottom, g_diff[0] ? g_diff : "-",
 				    g_broken ? "cache disabled" : "entry dropped");
 				if (g_broken) Purge("mismatch");
-				else g_cache.erase(it);
+				else {
+					std::string keyCopy = *foundKey;
+					memset(g_l1, 0, sizeof(g_l1));
+					g_cache.erase(keyCopy);
+				}
 				return orig(font, sprite, str, count, rc, fmt, color);
 			}
 		}

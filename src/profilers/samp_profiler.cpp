@@ -162,7 +162,9 @@ static DWORD __cdecl SampTimerEnter(int idx, DWORD *slot)
 		f.op = 0;
 		f.caller = 0;
 		if (idx == g_stScriptCommand) {
-			f.op = *(WORD *)slot[1]; // first argument: const SCRIPT_COMMAND* { WORD opcode; char fmt[] }
+			WORD op = 0;
+			if (slot[1] >= 0x10000) SafeReadBytes((const void *)slot[1], &op, sizeof(op));
+			f.op = op;
 			f.caller = f.ret - 5 - g_sampBase;
 		}
 		*slot = (DWORD)SampReturnThunk;
@@ -457,8 +459,9 @@ static bool Apply(BYTE *samp)
 		int rehooked = 0;
 		for (int i = 0; i < kSampFuncs; i++) {
 			if (orig[i] || alt[i] <= 1 || i == g_stScriptCommand) continue;
-			MEMORY_BASIC_INFORMATION mbi;
+			MEMORY_BASIC_INFORMATION mbi{};
 			if (!VirtualQuery((void *)alt[i], &mbi, sizeof(mbi)) || mbi.State != MEM_COMMIT ||
+			    (mbi.Protect & (PAGE_NOACCESS | PAGE_GUARD)) ||
 			    !(mbi.Protect & (PAGE_EXECUTE | PAGE_EXECUTE_READ | PAGE_EXECUTE_READWRITE | PAGE_EXECUTE_WRITECOPY)))
 				continue;
 			g_st[i].target = alt[i];
@@ -501,23 +504,36 @@ static bool Apply(BYTE *samp)
 	// is the whole world update): the immediate is pointed at the stub, in every samp version
 	static DWORD regStub[kRegSites];
 	int nreg = 0;
-	BYTE *end = ModuleEnd((HMODULE)samp) - 8;
-	for (BYTE *p = samp + 0x1000; p < end && nreg < kRegSites; p++) {
-		if ((p[0] & 0xF8) != 0xB8 || p[5] != 0xFF || p[6] != (0xD0 | (p[0] & 7))) continue;
-		DWORD imm = *(DWORD *)(p + 1);
-		if (imm < 0x400000 || imm >= 0x900000) continue;
-		for (int i = 0; i < kSampFuncs; i++)
-			if (kSampTimerFuncs[i].gta && g_st[i].target == imm) {
-				regStub[nreg] = (DWORD)(mem + 16 * i);
-				at[np] = p + 1;
-				data[np] = &regStub[nreg];
-				sizes[np] = 4;
-				fn[np] = (WORD)i;
-				g_siteImm[np] = true;
-				np++;
-				nreg++;
-				break;
+	BYTE *modEnd = ModuleEnd((HMODULE)samp);
+	if (modEnd && modEnd > samp + 0x1008) {
+		BYTE *scanEnd = modEnd - 8;
+		for (BYTE *cur = samp + 0x1000; cur < scanEnd && nreg < kRegSites;) {
+			MEMORY_BASIC_INFORMATION mbi{};
+			if (!VirtualQuery(cur, &mbi, sizeof(mbi))) break;
+			BYTE *regEnd = (BYTE *)mbi.BaseAddress + mbi.RegionSize;
+			if (regEnd <= cur) break;
+			if (mbi.State == MEM_COMMIT && IsExecutableReadableProtect(mbi.Protect)) {
+				BYTE *lim = regEnd > scanEnd ? scanEnd : (regEnd > cur + 8 ? regEnd - 8 : cur);
+				for (BYTE *p = cur; p < lim && nreg < kRegSites; p++) {
+					if ((p[0] & 0xF8) != 0xB8 || p[5] != 0xFF || p[6] != (0xD0 | (p[0] & 7))) continue;
+					DWORD imm = *(DWORD *)(p + 1);
+					if (imm < 0x400000 || imm >= 0x900000) continue;
+					for (int i = 0; i < kSampFuncs; i++)
+						if (kSampTimerFuncs[i].gta && g_st[i].target == imm) {
+							regStub[nreg] = (DWORD)(mem + 16 * i);
+							at[np] = p + 1;
+							data[np] = &regStub[nreg];
+							sizes[np] = 4;
+							fn[np] = (WORD)i;
+							g_siteImm[np] = true;
+							np++;
+							nreg++;
+							break;
+						}
+				}
 			}
+			cur = regEnd;
+		}
 	}
 
 	// CRenderer::ScanWorld hands its sector callbacks (ScanSectorList, ScanBigBuildingList) to

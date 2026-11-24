@@ -69,7 +69,7 @@ static bool Apply(BYTE *)
 	BYTE *drawSite = SampAt(S_OBJDRAW_SITE);
 	BYTE *objDraw = SampAt(S_OBJ_DRAW);
 	static const BYTE expect[] = { 0x55, 0x8B, 0xEC, 0x83, 0xE4, 0xF8, 0xB8, 0x40, 0x1F, 0x00, 0x00 };
-	if (!fn || !getDist || !drawSite || !objDraw || !SampHas(S_OBJPOOL_OBJS) || memcmp(fn, expect, sizeof(expect))) {
+	if (!fn || !getDist || !drawSite || !objDraw || !SampHas(S_OBJPOOL_OBJS) || !SafeMemMatch(fn, expect, sizeof(expect))) {
 		Log("ObjectDrawLastFast: CObjectPool::DrawLast mismatch on %s - skipped", SampVersionName());
 		return true;
 	}

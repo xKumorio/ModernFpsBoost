@@ -60,7 +60,7 @@ void MaterialFontCacheApply(BYTE *)
 	BYTE *p = SampAt(S_MATFONT_CREATE_SITE);
 	// the argument pushes before the call: the same bytes in every version
 	static const BYTE ctx[] = { 0x8D, 0x54, 0x24, 0x0C, 0x52, 0x53, 0x6A, 0x00, 0x6A, 0x00, 0x6A, 0x00, 0x6A, 0x01, 0x6A, 0x00, 0x6A, 0x01, 0x51, 0x8B, 0x0E, 0x6A, 0x00, 0x50, 0x51 };
-	if (!p || *p != 0xE8 || memcmp(p - sizeof(ctx), ctx, sizeof(ctx))) {
+	if (!p || !IsReadableRange(p - sizeof(ctx), sizeof(ctx) + 5) || *p != 0xE8 || memcmp(p - sizeof(ctx), ctx, sizeof(ctx))) {
 		Log("MaterialFontCache: the D3DXCreateFontA call is not original - skipped");
 		return;
 	}

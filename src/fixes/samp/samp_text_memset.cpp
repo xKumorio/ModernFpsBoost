@@ -26,7 +26,8 @@ static bool Apply(BYTE *)
 	BYTE *p = SampAt(S_TO_WIDE_SITE), *wide = SampAt(S_TO_WIDE);
 	// the converter's first bytes and the 20000-char count: the same in every version
 	static const BYTE fn[] = { 0x53, 0x8B, 0x5C, 0x24, 0x10, 0x55, 0x8B, 0x6C, 0x24, 0x10, 0x56, 0x8B, 0x74, 0x24, 0x10, 0x8D, 0x0C, 0x1B };
-	if (!p || !wide || !IsCallTo(p, (DWORD)wide) || memcmp(wide, fn, sizeof(fn)) || *(DWORD *)(p - 10) != 0x4E20) {
+	if (!p || !wide || !IsReadableRange(p - 10, 15) || !IsReadableRange(wide, sizeof(fn)) ||
+	    !IsCallTo(p, (DWORD)wide) || memcmp(wide, fn, sizeof(fn)) || *(DWORD *)(p - 10) != 0x4E20) {
 		Log("SampTextMemset: the UTF-16 conversion call is not original - skipped");
 		return true;
 	}

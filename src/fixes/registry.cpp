@@ -69,11 +69,71 @@ static Fix *const kFixes[] = {
 	&g_fixMaterialFontCache,
 };
 
+static bool RunFixLoad(Fix *f, const Ini &ini)
+{
+	__try {
+		f->load(ini);
+		return true;
+	} __except (EXCEPTION_EXECUTE_HANDLER) {
+		Log("%s: exception 0x%08lX during load - fix disabled", f->section, GetExceptionCode());
+		f->enabled = false;
+		f->active = false;
+		f->attached = true;
+		return false;
+	}
+}
+
+static void RunFixStart(Fix *f)
+{
+	__try {
+		f->atStart();
+	} __except (EXCEPTION_EXECUTE_HANDLER) {
+		Log("%s: exception 0x%08lX during startup - fix disabled", f->section, GetExceptionCode());
+		f->enabled = false;
+		f->active = false;
+		f->attached = true;
+	}
+}
+
+static bool RunFixAttachSamp(Fix *f, BYTE *samp)
+{
+	__try {
+		return f->atSamp(samp);
+	} __except (EXCEPTION_EXECUTE_HANDLER) {
+		Log("%s: exception 0x%08lX during SA-MP attach - fix disabled", f->section, GetExceptionCode());
+		f->enabled = false;
+		f->active = false;
+		f->attached = true;
+		return true;
+	}
+}
+
+static void RunFixReport(Fix *f, std::string &out, double secs)
+{
+	__try {
+		f->report(out, secs);
+	} __except (EXCEPTION_EXECUTE_HANDLER) {
+		Log("%s: exception 0x%08lX during report - reporting disabled", f->section, GetExceptionCode());
+		f->report = nullptr;
+	}
+}
+
+static void RunTickGuard(const char *name, void (*fn)(), bool &failed)
+{
+	if (failed) return;
+	__try {
+		fn();
+	} __except (EXCEPTION_EXECUTE_HANDLER) {
+		failed = true;
+		Log("%s: exception 0x%08lX during tick - tick disabled", name, GetExceptionCode());
+	}
+}
+
 void FixesLoad(const Ini &ini)
 {
 	for (Fix *f : kFixes) {
 		f->enabled = ini.Bool(f->section, "enabled", f->defaultOn);
-		if (f->enabled && f->load) f->load(ini);
+		if (f->enabled && f->load) RunFixLoad(f, ini);
 	}
 }
 
@@ -87,9 +147,9 @@ void FixesStart()
 			skipped = true;
 			continue;
 		}
-		f->atStart();
+		RunFixStart(f);
 	}
-	if (skipped) Log("gta_sa.exe is not 1.0 US - collision fixes skipped");
+	if (skipped) Log("gta_sa.exe is not 1.0 US - GTA 1.0 US fixes skipped");
 }
 
 bool FixesNeedSamp()
@@ -104,7 +164,7 @@ bool FixesAttachSamp(BYTE *samp)
 	bool all = true;
 	for (Fix *f : kFixes) {
 		if (!f->enabled || !f->atSamp || f->attached) continue;
-		f->attached = f->atSamp(samp);
+		f->attached = RunFixAttachSamp(f, samp);
 		all &= f->attached;
 	}
 	return all;
@@ -113,7 +173,7 @@ bool FixesAttachSamp(BYTE *samp)
 void FixesReport(std::string &out, double secs)
 {
 	for (Fix *f : kFixes)
-		if (f->enabled && f->report) f->report(out, secs);
+		if (f->enabled && f->report) RunFixReport(f, out, secs);
 }
 
 Fix *const *FixList(int &count)
@@ -135,9 +195,10 @@ void FixesTickStats()
 	if (now - g_statsAt < 1000) return;
 	double secs = (now - g_statsAt) / 1000.0;
 	g_statsAt = now;
-	SampfuncsDrawFastTick();
-	SilentPatchObjectFixTick();
-	SampStateBlockFixTick();
+	static bool sfFail, spFail, sbFail;
+	RunTickGuard("SampfuncsDrawFast", SampfuncsDrawFastTick, sfFail);
+	RunTickGuard("SilentPatchObjectFix", SilentPatchObjectFixTick, spFail);
+	RunTickGuard("SampStateBlockFix", SampStateBlockFixTick, sbFail);
 	g_stats.clear();
 	FixesReport(g_stats, secs);
 }

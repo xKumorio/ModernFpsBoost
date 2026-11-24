@@ -196,32 +196,55 @@ static volatile LONG g_limitTicks;                // sampled once it has run thi
 static volatile LONG g_menuOpen;
 
 struct ModRange { DWORD base, end; };
-static ModRange g_mods[2][512];
+static const int kMaxCodeRanges = 2048;
+static ModRange g_mods[2][kMaxCodeRanges];
 static volatile LONG g_modN[2], g_modSet;
 
+// Record only committed, readable + executable regions of loaded modules so stack scanning never
+// touches data sections, unmapped gaps, PAGE_NOACCESS / PAGE_GUARD pages, or execute-only stubs.
 static void RefreshModules()
 {
 	static HMODULE list[512];
 	DWORD need = 0;
 	if (!EnumProcessModules(GetCurrentProcess(), list, sizeof(list), &need)) return;
 	int n = (int)min(need / sizeof(HMODULE), (DWORD)512), set = g_modSet ^ 1, k = 0;
-	for (int i = 0; i < n; i++) {
+	for (int i = 0; i < n && k < kMaxCodeRanges; i++) {
 		MODULEINFO mi = {};
-		if (GetModuleInformation(GetCurrentProcess(), list[i], &mi, sizeof(mi))) g_mods[set][k++] = { (DWORD)mi.lpBaseOfDll, (DWORD)mi.lpBaseOfDll + mi.SizeOfImage };
+		if (!GetModuleInformation(GetCurrentProcess(), list[i], &mi, sizeof(mi))) continue;
+		BYTE *cur = (BYTE *)mi.lpBaseOfDll;
+		BYTE *modEnd = cur + mi.SizeOfImage;
+		if (modEnd <= cur) continue;
+		while (cur < modEnd && k < kMaxCodeRanges) {
+			MEMORY_BASIC_INFORMATION mbi{};
+			if (!VirtualQuery(cur, &mbi, sizeof(mbi))) break;
+			BYTE *regEnd = (BYTE *)mbi.BaseAddress + mbi.RegionSize;
+			if (regEnd <= cur) break;
+			if (regEnd > modEnd) regEnd = modEnd;
+			if (mbi.State == MEM_COMMIT && IsExecutableReadableProtect(mbi.Protect)) {
+				DWORD rBase = (DWORD)cur, rEnd = (DWORD)regEnd;
+				if (k > 0 && g_mods[set][k - 1].end == rBase) g_mods[set][k - 1].end = rEnd;
+				else g_mods[set][k++] = { rBase, rEnd };
+			}
+			cur = regEnd;
+		}
 	}
 	g_modN[set] = k;
+	MemoryBarrier();
 	g_modSet = set;
 }
 
-// v is the address after a call instruction inside a loaded module
+// v is the address after a call instruction inside a committed, readable executable region.
+// SafeReadBytes guards against a DLL unloading or changing page protection between RefreshModules()
+// and TakeSample() on another thread.
 static bool IsReturnAddress(DWORD v, const ModRange *mods, int n)
 {
 	for (int i = 0; i < n; i++) {
-		if (v < mods[i].base + 0x1008 || v >= mods[i].end) continue;
-		const BYTE *b = (const BYTE *)v;
-		if (b[-5] == 0xE8) return true;                               // call rel32
-		for (int len = 2; len <= 7; len++)                            // call r/m32: FF /2
-			if (b[-len] == 0xFF && (b[-len + 1] & 0x38) == 0x10) return true;
+		if (v < mods[i].base + 7 || v >= mods[i].end) continue;
+		BYTE code[7];
+		if (!SafeReadBytes((const BYTE *)v - 7, code, sizeof(code))) return false;
+		if (code[2] == 0xE8) return true;                             // b[-5]: call rel32
+		for (int len = 2; len <= 7; len++)                            // b[-len]: call r/m32 (FF /2)
+			if (code[7 - len] == 0xFF && (code[8 - len] & 0x38) == 0x10) return true;
 		return false;
 	}
 	return false;
@@ -242,11 +265,15 @@ static void TakeSample()
 	LONG seq = g_frameSeq;
 	bool got = GetThreadContext(g_mainHandle, &ctx) != 0;
 	if (got) {
-		MEMORY_BASIC_INFORMATION mbi;
-		if (VirtualQuery((void *)ctx.Esp, &mbi, sizeof(mbi)) && mbi.State == MEM_COMMIT && !(mbi.Protect & PAGE_GUARD)) {
-			const DWORD *sp = (const DWORD *)(ctx.Esp & ~3u), *end = (const DWORD *)((BYTE *)mbi.BaseAddress + mbi.RegionSize);
-			rawN = (int)min((LONG_PTR)(end - sp), (LONG_PTR)kStackCopy);
-			memcpy(raw, sp, rawN * sizeof(DWORD));
+		MEMORY_BASIC_INFORMATION mbi{};
+		if (VirtualQuery((void *)ctx.Esp, &mbi, sizeof(mbi)) && mbi.State == MEM_COMMIT && IsReadableProtect(mbi.Protect)) {
+			const DWORD *sp = (const DWORD *)(ctx.Esp & ~3u);
+			const DWORD *end = (const DWORD *)((BYTE *)mbi.BaseAddress + mbi.RegionSize);
+			if ((const BYTE *)sp >= (const BYTE *)mbi.BaseAddress && end > sp) {
+				int avail = (int)min((LONG_PTR)(end - sp), (LONG_PTR)kStackCopy);
+				if (avail > 0 && SafeReadBytes(sp, raw, (size_t)avail * sizeof(DWORD)))
+					rawN = avail;
+			}
 		}
 	}
 	ResumeThread(g_mainHandle);
@@ -264,6 +291,7 @@ static void TakeSample()
 	for (int i = 0; i < modN; i++) lo = min(lo, mods[i].base), hi = max(hi, mods[i].end);
 	for (int i = 0; i < rawN && s.n < kDepth; i++)
 		if (raw[i] >= lo && raw[i] < hi && IsReturnAddress(raw[i], mods, modN)) s.pc[s.n++] = raw[i];
+	MemoryBarrier();
 	g_sampleN++;
 }
 
