@@ -40,7 +40,7 @@ static HRESULT CreateTargetedUiStateBlock(IDirect3DDevice9 *dev, IDirect3DStateB
 	*ppSB = nullptr;
 
 	if (SUCCEEDED(dev->BeginStateBlock())) {
-		// All render states touched by CPlayerTags, CDXUTDialog, CDXUTControl, and ID3DXSprite
+		// All render states touched by CPlayerTags, CDXUTDialog, CDXUTControl, and d3dx9_25 ID3DXSprite::Begin
 		dev->SetRenderState(D3DRS_ZENABLE, D3DZB_FALSE);
 		dev->SetRenderState(D3DRS_FILLMODE, D3DFILL_SOLID);
 		dev->SetRenderState(D3DRS_SHADEMODE, D3DSHADE_GOURAUD);
@@ -56,38 +56,55 @@ static HRESULT CreateTargetedUiStateBlock(IDirect3DDevice9 *dev, IDirect3DStateB
 		dev->SetRenderState(D3DRS_ALPHABLENDENABLE, TRUE);
 		dev->SetRenderState(D3DRS_FOGENABLE, FALSE);
 		dev->SetRenderState(D3DRS_SPECULARENABLE, FALSE);
+		dev->SetRenderState(D3DRS_RANGEFOGENABLE, FALSE);
 		dev->SetRenderState(D3DRS_STENCILENABLE, FALSE);
 		dev->SetRenderState(D3DRS_TEXTUREFACTOR, 0xFFFFFFFF);
+		dev->SetRenderState(D3DRS_WRAP0, 0);
 		dev->SetRenderState(D3DRS_CLIPPING, TRUE);
 		dev->SetRenderState(D3DRS_LIGHTING, FALSE);
 		dev->SetRenderState(D3DRS_COLORVERTEX, TRUE);
+		dev->SetRenderState(D3DRS_VERTEXBLEND, D3DVBF_DISABLE);
+		dev->SetRenderState(D3DRS_CLIPPLANEENABLE, 0);
+		dev->SetRenderState(D3DRS_INDEXEDVERTEXBLENDENABLE, FALSE);
+		dev->SetRenderState(D3DRS_COLORWRITEENABLE, 0x0000000F);
 		dev->SetRenderState(D3DRS_BLENDOP, D3DBLENDOP_ADD);
 		dev->SetRenderState(D3DRS_SCISSORTESTENABLE, FALSE);
+		dev->SetRenderState(D3DRS_TWOSIDEDSTENCILMODE, FALSE);
+		dev->SetRenderState(D3DRS_SRGBWRITEENABLE, FALSE);
 		dev->SetRenderState(D3DRS_SEPARATEALPHABLENDENABLE, FALSE);
 		dev->SetRenderState(D3DRS_SRCBLENDALPHA, D3DBLEND_ONE);
 		dev->SetRenderState(D3DRS_DESTBLENDALPHA, D3DBLEND_ZERO);
+		dev->SetRenderState(D3DRS_BLENDOPALPHA, D3DBLENDOP_ADD);
+		dev->SetNPatchMode(0.0f);
 
 		// Texture stage 0 & 1 states
 		dev->SetTextureStageState(0, D3DTSS_COLOROP, D3DTOP_MODULATE);
 		dev->SetTextureStageState(0, D3DTSS_COLORARG1, D3DTA_TEXTURE);
 		dev->SetTextureStageState(0, D3DTSS_COLORARG2, D3DTA_DIFFUSE);
+		dev->SetTextureStageState(0, D3DTSS_COLORARG0, D3DTA_CURRENT);
 		dev->SetTextureStageState(0, D3DTSS_ALPHAOP, D3DTOP_MODULATE);
 		dev->SetTextureStageState(0, D3DTSS_ALPHAARG1, D3DTA_TEXTURE);
 		dev->SetTextureStageState(0, D3DTSS_ALPHAARG2, D3DTA_DIFFUSE);
+		dev->SetTextureStageState(0, D3DTSS_ALPHAARG0, D3DTA_CURRENT);
 		dev->SetTextureStageState(0, D3DTSS_TEXCOORDINDEX, 0);
 		dev->SetTextureStageState(0, D3DTSS_TEXTURETRANSFORMFLAGS, D3DTTFF_DISABLE);
 		dev->SetTextureStageState(0, D3DTSS_RESULTARG, D3DTA_CURRENT);
+		dev->SetTextureStageState(0, D3DTSS_CONSTANT, 0xFFFFFFFF);
 		dev->SetTextureStageState(1, D3DTSS_COLOROP, D3DTOP_DISABLE);
 		dev->SetTextureStageState(1, D3DTSS_ALPHAOP, D3DTOP_DISABLE);
 
 		// Sampler 0 states
 		dev->SetSamplerState(0, D3DSAMP_ADDRESSU, D3DTADDRESS_CLAMP);
 		dev->SetSamplerState(0, D3DSAMP_ADDRESSV, D3DTADDRESS_CLAMP);
+		dev->SetSamplerState(0, D3DSAMP_ADDRESSW, D3DTADDRESS_CLAMP);
+		dev->SetSamplerState(0, D3DSAMP_BORDERCOLOR, 0);
 		dev->SetSamplerState(0, D3DSAMP_MAGFILTER, D3DTEXF_LINEAR);
 		dev->SetSamplerState(0, D3DSAMP_MINFILTER, D3DTEXF_LINEAR);
 		dev->SetSamplerState(0, D3DSAMP_MIPFILTER, D3DTEXF_NONE);
 		dev->SetSamplerState(0, D3DSAMP_MIPMAPLODBIAS, 0);
 		dev->SetSamplerState(0, D3DSAMP_MAXMIPLEVEL, 0);
+		dev->SetSamplerState(0, D3DSAMP_MAXANISOTROPY, 1);
+		dev->SetSamplerState(0, D3DSAMP_SRGBTEXTURE, 0);
 
 		// Shaders, vertex input & texture 0
 		dev->SetVertexShader(nullptr);
@@ -133,7 +150,7 @@ static void TryHotSwap(IDirect3DDevice9 *dev, IDirect3DStateBlock9 **slot, const
 		*slot = fast;
 		old->Release();
 		g_swapped++;
-		Log("SampStateBlockFix: hot-swapped %s D3DSBT_ALL -> targeted 54-state block", name);
+		Log("SampStateBlockFix: hot-swapped %s D3DSBT_ALL -> targeted UI state block", name);
 	}
 }
 
@@ -196,7 +213,7 @@ static bool Apply(BYTE *)
 		g_playerTagsSlot = (BYTE **)SampAt(S_PLAYERTAGS_PTR);
 		g_dxutMgrSlot    = (BYTE **)SampAt(S_DXUT_RESMGR_PTR);
 		g_fixSampStateBlockFix.active = true;
-		Log("SampStateBlockFix: %d/3 D3DSBT_ALL sites replaced with targeted 54-state block (%s)", n, SampVersionName());
+		Log("SampStateBlockFix: %d/3 D3DSBT_ALL sites replaced with targeted UI state block (%s)", n, SampVersionName());
 	} else {
 		Log("SampStateBlockFix: signatures changed (%d/3) on %s - skipped", n, SampVersionName());
 	}

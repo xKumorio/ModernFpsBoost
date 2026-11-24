@@ -56,6 +56,10 @@ static float g_openAnim;
 static bool g_imgui, g_imguiFailed, g_overlayFaulted;
 static int g_cursorMode = CURSOR_NONE;
 static DWORD g_cursorAt;
+static bool g_sampCursor;
+static bool g_spLocked;
+static bool g_spSaved;
+static BYTE g_spOrig541DF5[5], g_spOrig53F417[5], g_spOrig53F41F[4], g_spOrig6194A0[1];
 
 static void GreetInChat();
 
@@ -135,6 +139,10 @@ static LRESULT CALLBACK MsgHook(int code, WPARAM wp, LPARAM lp)
 
 static LRESULT CALLBACK WndProc(HWND w, UINT m, WPARAM wp, LPARAM lp)
 {
+	if (g_open && !g_sampCursor && m == WM_SETCURSOR && LOWORD(lp) == HTCLIENT) {
+		SetCursor(nullptr); // ImGui draws the cursor in singleplayer; avoid a duplicate OS cursor
+		return TRUE;
+	}
 	if (IsInput(m)) {
 		if (MenuInput(w, m, wp, lp)) return 0; // sent, not posted: the hook did not see it
 	} else if (g_open && g_imgui) {
@@ -143,21 +151,95 @@ static LRESULT CALLBACK WndProc(HWND w, UINT m, WPARAM wp, LPARAM lp)
 	return g_isUnicodeWnd ? CallWindowProcW(g_prevProc, w, m, wp, lp) : CallWindowProcA(g_prevProc, w, m, wp, lp);
 }
 
-static void SetSampCursor(int mode)
+static bool SetSampCursor(int mode)
 {
 	void **gameVar = (void **)SampAt(S_GAME);
 	BYTE *setMode = SampAt(S_SET_CURSOR_MODE);
-	if (!gameVar || !IsReadableRange(gameVar, sizeof(void *)) || !*gameVar || !setMode || !IsReadableRange(setMode, 4)) return;
+	if (!gameVar || !IsReadableRange(gameVar, sizeof(void *)) || !*gameVar || !setMode || !IsReadableRange(setMode, 4))
+		return false;
 	((void(__thiscall *)(void *, int, BOOL))setMode)(*gameVar, mode, mode == CURSOR_NONE);
+	return true;
 }
 
-// SA-MP resets the cursor itself (chat, dialogs): while the menu is open it is set again twice a second
+static void SetDiMouseAcquired(bool acquire)
+{
+	if (!IsGta10US() || !IsReadableRange((void *)0xC17054, sizeof(void *))) return;
+	BYTE *psGlobal = *(BYTE **)0xC17054;
+	if (!psGlobal || !IsReadableRange(psGlobal + 0x1C, sizeof(void *))) return;
+	void *mouse = *(void **)(psGlobal + 0x1C);
+	if (!mouse || !IsReadableRange(mouse, sizeof(void *))) return;
+	void **vt = *(void ***)mouse;
+	const int slot = acquire ? (0x1C / 4) : (0x20 / 4); // IDirectInputDevice8::Acquire / Unacquire
+	if (!vt || !IsReadableRange(vt + slot, sizeof(void *)) || !vt[slot]) return;
+	((HRESULT(__stdcall *)(void *))vt[slot])(mouse);
+}
+
+// Singleplayer / non-SA-MP cursor & input lock (mirrors SA-MP CGame::SetCursorMode on GTA SA 1.0 US,
+// releases exclusive DirectInput mouse so Win32 cursor moves freely, and lets ImGui render the cursor
+// reliably in both windowed and exclusive fullscreen / DXVK modes).
+static void SetSingleplayerCursor(bool lock)
+{
+	if (lock == g_spLocked) return;
+	if (!IsGta10US()) {
+		g_spLocked = lock;
+		return;
+	}
+	if (lock) {
+		if (!g_spSaved) {
+			if (!SafeReadBytes((void *)0x541DF5, g_spOrig541DF5, 5) ||
+			    !SafeReadBytes((void *)0x53F417, g_spOrig53F417, 5) ||
+			    !SafeReadBytes((void *)0x53F41F, g_spOrig53F41F, 4) ||
+			    !SafeReadBytes((void *)0x6194A0, g_spOrig6194A0, 1))
+				return;
+			g_spSaved = true;
+		}
+		static const BYTE kNop5[5]  = { 0x90, 0x90, 0x90, 0x90, 0x90 };
+		static const BYTE kSkip4[4] = { 0x33, 0xC0, 0x0F, 0x84 }; // xor eax, eax; jz ...
+		static const BYTE kRet1[1]  = { 0xC3 };
+		PatchBytes(0x541DF5, nullptr, kNop5, 5);
+		PatchBytes(0x53F417, nullptr, kNop5, 5);
+		PatchBytes(0x53F41F, nullptr, kSkip4, 4);
+		PatchBytes(0x6194A0, nullptr, kRet1, 1);
+		*(DWORD *)0xB73424 = 0;
+		*(DWORD *)0xB73428 = 0;
+		((void(__cdecl *)())0x541BD0)(); // CPad::ClearMouseHistory
+		((void(__cdecl *)())0x541DD0)(); // CPad::UpdatePads helper
+		SetDiMouseAcquired(false);
+		ClipCursor(nullptr);
+		g_spLocked = true;
+	} else {
+		if (g_spSaved) {
+			PatchBytes(0x541DF5, nullptr, g_spOrig541DF5, 5);
+			PatchBytes(0x53F417, nullptr, g_spOrig53F417, 5);
+			PatchBytes(0x53F41F, nullptr, g_spOrig53F41F, 4);
+			PatchBytes(0x6194A0, nullptr, g_spOrig6194A0, 1);
+		}
+		*(DWORD *)0xB73424 = 0;
+		*(DWORD *)0xB73428 = 0;
+		((void(__cdecl *)())0x541BD0)(); // CPad::ClearMouseHistory
+		SetDiMouseAcquired(true);
+		g_spLocked = false;
+	}
+}
+
+// SA-MP resets the cursor itself (chat, dialogs): while the menu is open it is set again twice a second.
+// In singleplayer (no SA-MP), fall back to SetSingleplayerCursor + ImGui software cursor.
 static void UpdateCursor()
 {
 	int want = g_open ? CURSOR_LOCKCAMANDCONTROL : CURSOR_NONE;
 	DWORD now = GetTickCount();
 	if (want != g_cursorMode || (want != CURSOR_NONE && now - g_cursorAt > 500)) {
-		SetSampCursor(want);
+		if (SetSampCursor(want)) {
+			if (g_spLocked) SetSingleplayerCursor(false);
+			g_sampCursor = true;
+		} else {
+			g_sampCursor = false;
+			SetSingleplayerCursor(want != CURSOR_NONE);
+			if (want != CURSOR_NONE) {
+				SetDiMouseAcquired(false);
+				ClipCursor(nullptr);
+			}
+		}
 		g_cursorMode = want;
 		g_cursorAt = now;
 	}
@@ -407,6 +489,7 @@ static void OnFrame(IDirect3DDevice9 *device)
 	}
 
 	ImGuiIO &io = ImGui::GetIO();
+	io.MouseDrawCursor = (g_open && !g_sampCursor);
 	if (g_open) {
 		io.ConfigFlags &= ~ImGuiConfigFlags_NoMouse;
 		ImGui_ImplWin32_NewFrame();
@@ -450,6 +533,7 @@ static void OnFrameSafe(IDirect3DDevice9 *device)
 	} __except (EXCEPTION_EXECUTE_HANDLER) {
 		g_overlayFaulted = true;
 		g_open = false;
+		if (g_spLocked) SetSingleplayerCursor(false);
 		Log("Menu: exception 0x%08lX in overlay frame - menu disabled, FPS fixes keep running", GetExceptionCode());
 	}
 }

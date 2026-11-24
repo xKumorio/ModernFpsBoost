@@ -11,22 +11,53 @@
 // light" keep their last value while it is off screen (SA-MP's scripts never ask).
 
 #include <math.h>
+#include <stdint.h>
 
 #include "../registry.h"
 
 struct Vec3 { float x, y, z; };
+struct RwIm3DVertex { float x, y, z, nx, ny, nz; DWORD color; float u, v; }; // 36 bytes (D3D9)
+static_assert(sizeof(RwIm3DVertex) == 0x24, "RwIm3DVertex size mismatch");
 
+static const DWORD kRenderAllSite = 0x53E1D6; // call CTheScripts::RenderAllSearchLights in RenderEffects
+static const DWORD kRenderAll = 0x493E30;
 static const DWORD kRenderSite = 0x493FB7; // call CHeli::SearchLightCone in RenderAllSearchLights
 static const DWORD kSearchLightCone = 0x6C58E0;
 static const DWORD kRegisterCorona = 0x6FC580;
 static const DWORD kIsSphereVisible = 0x420D40; // CCamera::IsSphereVisible(const CVector &, float)
 static const DWORD kTheCamera = 0xB6F028;
+static const DWORD kRwIm3DTransform = 0x7EF450;
+static const DWORD kRwIm3DRenderIndexedPrimitive = 0x7EF550;
+static const DWORD kRwIm3DEnd = 0x7EF520;
 
 typedef void(__cdecl *Cone_t)(int, Vec3, Vec3, float, float, BYTE, BYTE, Vec3 *, Vec3 *, Vec3 *, bool, float, float, float, float);
 typedef void(__cdecl *Corona_t)(int, void *, BYTE, BYTE, BYTE, BYTE, const Vec3 *, float, float, void *, int, int, int, int, float, bool,
                                float, bool, float, bool, bool);
+typedef void *(__cdecl *RwIm3DTransform_t)(RwIm3DVertex *, uint32_t, void *, uint32_t);
+typedef int(__cdecl *RwIm3DRenderIdx_t)(int, uint16_t *, int);
+typedef int(__cdecl *RwIm3DEnd_t)();
 
 static DWORD g_drawn, g_culled;
+static DWORD g_renderAllNext = kRenderAll;
+static bool g_renderAllHooked;
+static DWORD g_passDrawn, g_passCulled;
+static DWORD g_lastSyncFrame;
+
+// Vanilla RenderAllSearchLights always draws Area 69's 7 cones via RwIm3D between Pre_SearchLightCone
+// and Post_SearchLightCone. When all cones are culled and no Fx particles or first-person weapons drew
+// in RenderEffects, RenderWare/D3D9 stays in CCoronas' Im2D state (D3DRS_CLIPPING=0, Im2D decl/VB/IB,
+// unflushed state cache), which breaks CPostEffects::Render and post-processing hooks (ColorMod/SkyGfx)
+// whenever zero particles exist. One degenerate 0-area Im3D triangle restores exact vanilla Im3D pipeline
+// state with negligible cost while keeping all cone geometry/raycast/shadow savings.
+static void SyncVanillaIm3DState()
+{
+	static RwIm3DVertex v[3] = {};
+	static uint16_t idx[3] = { 0, 0, 0 };
+	if (((RwIm3DTransform_t)kRwIm3DTransform)(v, 3, nullptr, 0x18)) {
+		((RwIm3DRenderIdx_t)kRwIm3DRenderIndexedPrimitive)(3 /* rwPRIMTYPETRILIST */, idx, 3);
+		((RwIm3DEnd_t)kRwIm3DEnd)();
+	}
+}
 
 static void Normalise(Vec3 &v)
 {
@@ -63,11 +94,30 @@ static void __cdecl hkCone(int id, Vec3 origin, Vec3 target, float targetRadius,
 	float r = 0.5f * sqrtf(dx * dx + dy * dy + dz * dz) + (targetRadius > baseRadius ? targetRadius : baseRadius) * 2.0f + 2.0f;
 	if (((bool(__thiscall *)(DWORD, const Vec3 &, float))kIsSphereVisible)(kTheCamera, mid, r)) {
 		g_drawn++;
+		g_passDrawn++;
+		g_lastSyncFrame = *(DWORD *)kFrameCounter;
 		((Cone_t)kSearchLightCone)(id, origin, target, targetRadius, power, clip, shadow, u0, u1, u2, script, baseRadius, a13, a14, a15);
 		return;
 	}
 	g_culled++;
+	g_passCulled++;
 	RegisterLampCorona(id, origin, target);
+	if (!g_renderAllHooked) {
+		DWORD frame = *(DWORD *)kFrameCounter;
+		if (frame != g_lastSyncFrame) {
+			g_lastSyncFrame = frame;
+			SyncVanillaIm3DState();
+		}
+	}
+}
+
+static void __cdecl hkRenderAllSearchLights()
+{
+	g_passDrawn = 0;
+	g_passCulled = 0;
+	((void(__cdecl *)())g_renderAllNext)();
+	if (g_passDrawn == 0 && g_passCulled > 0)
+		SyncVanillaIm3DState();
 }
 
 static void Apply()
@@ -77,7 +127,14 @@ static void Apply()
 		return;
 	}
 	g_fixSearchLightCull.active = RedirectCall((BYTE *)kRenderSite, (void *)hkCone);
-	if (g_fixSearchLightCull.active) Log("SearchLightCull: script search lights outside the view are not built");
+	if (g_fixSearchLightCull.active) {
+		BYTE *allCall = (BYTE *)kRenderAllSite;
+		if (IsCallTo(allCall, kRenderAll) && RedirectCall(allCall, (void *)hkRenderAllSearchLights)) {
+			AddCallChain(allCall, &g_renderAllNext);
+			g_renderAllHooked = true;
+		}
+		Log("SearchLightCull: script search lights outside the view are not built");
+	}
 }
 
 static void Report(std::string &out, double secs)
