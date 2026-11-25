@@ -609,27 +609,35 @@ static HRESULT __stdcall hkReset(IDirect3DDevice9 *dev, D3DPRESENT_PARAMETERS *p
 static bool EnsureRealHooks(IDirect3DDevice9 *dev, bool singleHook, bool logRestore)
 {
 	void **vt = dev ? *(void ***)dev : nullptr;
-	if (!vt) return false;
+	if (!vt || !IsReadableRange(vt, (kVtPresent + 1) * sizeof(void *))) return false;
 	void *wantPresent = singleHook ? (void *)hkPresentOuter : (void *)hkPresent;
 	if (!singleHook && (vt == g_outerVt || vt[kVtPresent] == (void *)hkPresentOuter))
 		return false;
 
+	Present_t &origPresent = singleHook ? oPresentOuter : oPresent;
 	bool restoredPresent = false;
 	if (vt[kVtPresent] != wantPresent) {
 		void *cur = vt[kVtPresent];
-		if (cur != (void *)hkPresent && cur != (void *)hkPresentOuter) {
-			if (singleHook) oPresentOuter = (Present_t)cur;
-			else oPresent = (Present_t)cur;
-		}
+		// On restore checks, only re-apply if d3d9.dll reset the vtable back to our saved original
+		// Present. Never stomp or re-wrap a third-party hook (which would cause vtable fighting,
+		// VirtualProtect thrashing on CD3DHal heap memory, or infinite hook recursion).
+		if (logRestore && origPresent && cur != (void *)origPresent)
+			return false;
+		if (!origPresent && cur != (void *)hkPresent && cur != (void *)hkPresentOuter)
+			origPresent = (Present_t)cur;
+		MemoryBarrier();
 		if (!PatchBytes((DWORD)&vt[kVtPresent], nullptr, &wantPresent, 4))
 			return false;
 		restoredPresent = true;
 	}
 	if (vt[kVtReset] != (void *)hkReset) {
 		void *cur = vt[kVtReset];
-		if (cur != (void *)hkReset) oReset = (Reset_t)cur;
-		void *hookReset = (void *)hkReset;
-		PatchBytes((DWORD)&vt[kVtReset], nullptr, &hookReset, 4);
+		if (!logRestore || (oReset && cur == (void *)oReset)) {
+			if (!oReset && cur != (void *)hkReset) oReset = (Reset_t)cur;
+			MemoryBarrier();
+			void *hookReset = (void *)hkReset;
+			PatchBytes((DWORD)&vt[kVtReset], nullptr, &hookReset, 4);
+		}
 	}
 	if (restoredPresent && logRestore)
 		Log("Menu: real device Present restored after vtable reset (vt %p)", vt);
@@ -702,7 +710,7 @@ static HRESULT __stdcall hkPresentOuter(IDirect3DDevice9 *dev, const RECT *a, co
 	if (g_insideOuter) return oPresentOuter(dev, a, b, w, r);
 	if (!g_singleHook && g_realDevice) {
 		void **vt = *(void ***)g_realDevice;
-		if (vt && (vt[kVtPresent] != (void *)hkPresent || vt[kVtReset] != (void *)hkReset))
+		if (vt && ((oPresent && vt[kVtPresent] == (void *)oPresent) || (oReset && vt[kVtReset] == (void *)oReset)))
 			EnsureRealHooks(g_realDevice, false, true);
 	}
 	g_insideOuter = true;
@@ -718,7 +726,7 @@ static HRESULT __stdcall hkPresentOuter(IDirect3DDevice9 *dev, const RECT *a, co
 	if (!g_singleHook) {
 		if (!g_realSeen) {
 			IDirect3DDevice9 *curReal = ResolveRealDevice(dev);
-			if (curReal && curReal != g_realDevice && EnsureRealHooks(curReal, false, true)) {
+			if (curReal && curReal != g_realDevice && EnsureRealHooks(curReal, false, false)) {
 				g_realDevice = curReal;
 				g_useOuter = false;
 				Log("Menu: re-attached to new real device %p", curReal);

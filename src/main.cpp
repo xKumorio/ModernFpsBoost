@@ -24,7 +24,11 @@ static DWORD WINAPI AttachThread(LPVOID)
 			return 0;
 		}
 		g_samp = (BYTE *)samp;
-		Log("SA-MP %s", SampVersionName());
+		static bool loggedSamp;
+		if (!loggedSamp) {
+			loggedSamp = true;
+			Log("SA-MP %s", SampVersionName());
+		}
 		if (FixesAttachSamp((BYTE *)samp)) return 0;
 	}
 }
