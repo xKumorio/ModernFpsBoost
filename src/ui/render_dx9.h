@@ -9,6 +9,7 @@ struct ImDrawData;
 
 bool RenderInit(IDirect3DDevice9 *device); // font atlas texture; ImGui fonts must be added before
 void RenderOnLostDevice();                 // release cached D3D9 state blocks before Reset()
+void RenderResetDevice();                  // release all D3D9 resources when device pointer changes
 void RenderDrawData(ImDrawData *data);
 
 // JPEG/PNG from an RCDATA resource of this module -> managed texture; width/height of the image

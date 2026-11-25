@@ -56,6 +56,7 @@ static bool g_isUnicodeWnd;
 static bool g_open;
 static float g_openAnim;
 static bool g_imgui, g_imguiFailed, g_overlayFaulted;
+static IDirect3DDevice9 *g_imguiDevice;
 static int g_cursorMode = CURSOR_NONE;
 static DWORD g_cursorAt;
 static bool g_sampCursor;
@@ -433,7 +434,19 @@ static void TrackFrame()
 
 static bool InitImGui(IDirect3DDevice9 *device)
 {
-	if (g_imgui) return true;
+	if (g_imgui) {
+		if (device == g_imguiDevice) return true;
+		if (g_background) { g_background->Release(); g_background = nullptr; }
+		RenderResetDevice();
+		if (!RenderInit(device)) {
+			Log("Menu: ImGui re-init failed on new device %p", device);
+			return false;
+		}
+		g_background = LoadResourceTexture(IDR_BACKGROUND, g_backgroundW, g_backgroundH);
+		g_imguiDevice = device;
+		Log("Menu: ImGui re-bound to new device %p", device);
+		return true;
+	}
 	if (g_imguiFailed) return false;
 	g_imguiFailed = true;
 	ImGui::CreateContext();
@@ -453,6 +466,7 @@ static bool InitImGui(IDirect3DDevice9 *device)
 	g_background = LoadResourceTexture(IDR_BACKGROUND, g_backgroundW, g_backgroundH);
 	if (!g_background) Log("Menu: background image not loaded");
 	g_imgui = true;
+	g_imguiDevice = device;
 	g_imguiFailed = false;
 	Log("Menu: ready (%dx%d background)", g_backgroundW, g_backgroundH);
 	return true;
@@ -496,6 +510,10 @@ static void OnFrame(IDirect3DDevice9 *device)
 	const bool visible = (g_openAnim > 0 || g_ui.fpsOverlay);
 	InterlockedExchange(&g_hwWanted, visible ? 1 : 0);
 	if (!visible) return;
+	// Wait until the game has rendered a few frames and the device/window are ready;
+	// drawing in Present on frame #1 with fps_overlay=1 can leave a black screen during init.
+	if (g_frames.count < 10 || !IsWindow(g_window) || IsIconic(g_window)) return;
+	if (device->TestCooperativeLevel() != D3D_OK) return;
 	if (!InitImGui(device)) return;
 	HRESULT bhr = device->BeginScene();
 	if (FAILED(bhr)) {
@@ -527,7 +545,11 @@ static void OnFrame(IDirect3DDevice9 *device)
 			}
 			s_rectAt = now;
 		}
-		io.DisplaySize = ImVec2((float)(s_w > 0 ? s_w : 1920), (float)(s_h > 0 ? s_h : 1080));
+		if (s_w <= 0 || s_h <= 0) {
+			device->EndScene();
+			return;
+		}
+		io.DisplaySize = ImVec2((float)s_w, (float)s_h);
 		io.DeltaTime = dt > 0.0001f ? dt : (1.0f / 60.0f);
 	}
 	ImGui::NewFrame();
@@ -623,7 +645,7 @@ static bool EnsureRealHooks(IDirect3DDevice9 *dev, bool singleHook, bool logRest
 		// VirtualProtect thrashing on CD3DHal heap memory, or infinite hook recursion).
 		if (logRestore && origPresent && cur != (void *)origPresent)
 			return false;
-		if (!origPresent && cur != (void *)hkPresent && cur != (void *)hkPresentOuter)
+		if (cur != (void *)hkPresent && cur != (void *)hkPresentOuter && (!logRestore || !origPresent))
 			origPresent = (Present_t)cur;
 		MemoryBarrier();
 		if (!PatchBytes((DWORD)&vt[kVtPresent], nullptr, &wantPresent, 4))
@@ -633,7 +655,7 @@ static bool EnsureRealHooks(IDirect3DDevice9 *dev, bool singleHook, bool logRest
 	if (vt[kVtReset] != (void *)hkReset) {
 		void *cur = vt[kVtReset];
 		if (!logRestore || (oReset && cur == (void *)oReset)) {
-			if (!oReset && cur != (void *)hkReset) oReset = (Reset_t)cur;
+			if (cur != (void *)hkReset && (!logRestore || !oReset)) oReset = (Reset_t)cur;
 			MemoryBarrier();
 			void *hookReset = (void *)hkReset;
 			PatchBytes((DWORD)&vt[kVtReset], nullptr, &hookReset, 4);
@@ -783,6 +805,8 @@ static DWORD WINAPI HookThread(LPVOID)
 				g_outerDevice = curOuter;
 				g_outerVt = curVt;
 				oPresentOuter = (Present_t)curPresent;
+				oPresent = nullptr;
+				oReset = nullptr;
 				g_realHooked = false;
 				g_singleHook = false;
 				g_realDevice = nullptr;

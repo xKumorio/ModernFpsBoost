@@ -69,6 +69,13 @@ void RenderOnLostDevice()
 	if (g_imguiState) { g_imguiState->Release(); g_imguiState = nullptr; }
 }
 
+void RenderResetDevice()
+{
+	RenderOnLostDevice();
+	if (g_fontTexture) { g_fontTexture->Release(); g_fontTexture = nullptr; }
+	g_device = nullptr;
+}
+
 IDirect3DTexture9 *LoadResourceTexture(int id, int &width, int &height)
 {
 	HRSRC r = FindResourceA(g_module, MAKEINTRESOURCEA(id), MAKEINTRESOURCEA(10) /* RT_RCDATA */);

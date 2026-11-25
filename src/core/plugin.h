@@ -13,7 +13,7 @@
 #define PLUGIN_AUTHOR "Softik Inquisitor"
 #define PLUGIN_AUTHOR_URL "https://vk.ru/miurawr"
 #define PLUGIN_FILE_NAME L"ModernFpsBoostBySoftikInquisitor(vk-miurawr).asi" // the file renames itself back to this
-#define PLUGIN_VERSION "1.0.5"
+#define PLUGIN_VERSION "1.0.6"
 
 extern HMODULE g_module;   // this .asi
 extern char    g_dir[MAX_PATH]; // folder of the .asi (the game folder)
