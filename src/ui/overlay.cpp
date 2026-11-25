@@ -669,7 +669,9 @@ static bool EnsureRealHooks(IDirect3DDevice9 *dev, bool singleHook, bool logRest
 static HRESULT __stdcall hkReset(IDirect3DDevice9 *dev, D3DPRESENT_PARAMETERS *pp)
 {
 	RenderOnLostDevice();
-	HRESULT hr = oReset(dev, pp);
+	Reset_t orig = oReset;
+	if (!orig) return D3D_OK;
+	HRESULT hr = orig(dev, pp);
 	EnsureRealHooks(dev, g_singleHook, true);
 	return hr;
 }
@@ -802,6 +804,34 @@ static DWORD WINAPI HookThread(LPVOID)
 		void *curPresent = curVt[kVtPresent];
 		if (curOuter != g_outerDevice || curVt != g_outerVt) {
 			if (curPresent && curPresent != (void *)hkPresentOuter && curPresent != (void *)hkPresent) {
+				// CRITICAL: unhook the previous outer/real vtables BEFORE re-binding oPresentOuter
+				// to the new proxy device. Otherwise, when the new proxy's Present calls the old
+				// underlying device's Present, it would re-enter hkPresentOuter and call the NEW
+				// proxy's oPresentOuter with the OLD device's `this` pointer -> instant crash / stack overflow!
+				if (g_outerVt && IsReadableRange(g_outerVt, (kVtPresent + 1) * sizeof(void *))) {
+					if (g_outerVt[kVtPresent] == (void *)hkPresentOuter && oPresentOuter) {
+						void *origP = (void *)oPresentOuter;
+						PatchBytes((DWORD)&g_outerVt[kVtPresent], nullptr, &origP, 4);
+					}
+					if (g_outerVt[kVtReset] == (void *)hkReset && oReset) {
+						void *origR = (void *)oReset;
+						PatchBytes((DWORD)&g_outerVt[kVtReset], nullptr, &origR, 4);
+					}
+				}
+				if (g_realDevice && IsReadableRange(g_realDevice, sizeof(void *))) {
+					void **rvt = *(void ***)g_realDevice;
+					if (rvt && IsReadableRange(rvt, (kVtPresent + 1) * sizeof(void *))) {
+						if (rvt[kVtPresent] == (void *)hkPresent && oPresent) {
+							void *origP = (void *)oPresent;
+							PatchBytes((DWORD)&rvt[kVtPresent], nullptr, &origP, 4);
+						}
+						if (rvt[kVtReset] == (void *)hkReset && oReset) {
+							void *origR = (void *)oReset;
+							PatchBytes((DWORD)&rvt[kVtReset], nullptr, &origR, 4);
+						}
+					}
+				}
+				Sleep(20); // let any in-flight Present/Reset on the main thread finish with old pointers
 				g_outerDevice = curOuter;
 				g_outerVt = curVt;
 				oPresentOuter = (Present_t)curPresent;
