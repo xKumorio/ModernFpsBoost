@@ -140,7 +140,7 @@ static void Apply()
 static void Report(std::string &out, double secs)
 {
 	if (g_drawn + g_culled)
-		Appendf(out, "SearchLightCull: конусов прожекторов %.0f/с нарисовано, %.0f/с пропущено вне экрана\n", g_drawn / secs, g_culled / secs);
+		Appendf(out, Tr("SearchLightCull: конусов прожекторов %.0f/с нарисовано, %.0f/с пропущено вне экрана\n", "SearchLightCull: %.0f/s cones drawn, %.0f/s culled off-screen\n"), g_drawn / secs, g_culled / secs);
 	g_drawn = g_culled = 0;
 }
 

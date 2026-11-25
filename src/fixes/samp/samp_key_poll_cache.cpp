@@ -92,7 +92,7 @@ static bool Apply(BYTE *samp)
 static void Report(std::string &out, double secs)
 {
 	if (g_calls)
-		Appendf(out, "SampKeyPollCache: пропущено %.0f%% из %.0f GetAsyncKeyState/с\n", 100.0 * g_skipped / g_calls, g_calls / secs);
+		Appendf(out, Tr("SampKeyPollCache: пропущено %.0f%% из %.0f GetAsyncKeyState/с\n", "SampKeyPollCache: skipped %.0f%% of %.0f GetAsyncKeyState/s\n"), 100.0 * g_skipped / g_calls, g_calls / secs);
 	g_calls = g_skipped = 0;
 }
 

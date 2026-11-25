@@ -87,7 +87,7 @@ static bool Apply(BYTE *samp)
 static void Report(std::string &out, double secs)
 {
 	if (g_drawn + g_culled)
-		Appendf(out, "SampObjectCull: объектов SA-MP %.0f/с нарисовано, %.0f/с пропущено (вне экрана)\n", g_drawn / secs, g_culled / secs);
+		Appendf(out, Tr("SampObjectCull: объектов SA-MP %.0f/с нарисовано, %.0f/с пропущено (вне экрана)\n", "SampObjectCull: %.0f/s SA-MP objects drawn, %.0f/s culled (off-screen)\n"), g_drawn / secs, g_culled / secs);
 	g_drawn = g_culled = 0;
 }
 

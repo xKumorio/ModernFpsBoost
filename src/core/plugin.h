@@ -13,12 +13,15 @@
 #define PLUGIN_AUTHOR "Softik Inquisitor"
 #define PLUGIN_AUTHOR_URL "https://vk.ru/miurawr"
 #define PLUGIN_FILE_NAME L"ModernFpsBoostBySoftikInquisitor(vk-miurawr).asi" // the file renames itself back to this
-#define PLUGIN_VERSION "1.0.4"
+#define PLUGIN_VERSION "1.0.5"
 
 extern HMODULE g_module;   // this .asi
 extern char    g_dir[MAX_PATH]; // folder of the .asi (the game folder)
 extern DWORD   g_mainThread; // set in DllMain: ASIs are loaded on the game's main thread
 extern BYTE   *g_samp;     // samp.dll once it is loaded and its version is known (core/samp.h)
+extern bool    g_english;  // [Language] english=1 in ModernFpsBoost.ini
+
+inline const char *Tr(const char *ru, const char *en) { return g_english ? en : ru; }
 
 void Log(const char *fmt, ...);
 void LogTail(std::vector<std::string> &out, size_t &seen); // lines logged since `seen`

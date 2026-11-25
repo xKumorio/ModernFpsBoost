@@ -151,7 +151,7 @@ static bool Apply(BYTE *)
 static void Report(std::string &out, double secs)
 {
 	if (g_calls)
-		Appendf(out, "PlayerTagState: пропущено %.0f%% пустых проходов Begin/End (%.0f/с)\n", 100.0 * g_skipped / g_calls, g_skipped / secs);
+		Appendf(out, Tr("PlayerTagState: пропущено %.0f%% пустых проходов Begin/End (%.0f/с)\n", "PlayerTagState: skipped %.0f%% empty Begin/End passes (%.0f/s)\n"), 100.0 * g_skipped / g_calls, g_skipped / secs);
 	g_calls = g_skipped = 0;
 }
 

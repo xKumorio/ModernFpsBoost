@@ -219,7 +219,7 @@ static bool Apply(BYTE *)
 static void Report(std::string &out, double secs)
 {
 	if (!g_barsDrawn) return;
-	Appendf(out, "HealthBarBatch: %.0f полосок/с -> %.0f вызовов DrawPrimitiveUP/с\n", g_barsDrawn / secs, g_flushes / secs);
+	Appendf(out, Tr("HealthBarBatch: %.0f полосок/с -> %.0f вызовов DrawPrimitiveUP/с\n", "HealthBarBatch: %.0f bars/s -> %.0f DrawPrimitiveUP calls/s\n"), g_barsDrawn / secs, g_flushes / secs);
 	g_barsDrawn = g_flushes = 0;
 }
 

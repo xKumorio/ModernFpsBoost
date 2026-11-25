@@ -93,7 +93,7 @@ static bool Apply(BYTE *)
 static void Report(std::string &out, double secs)
 {
 	if (g_calls)
-		Appendf(out, "AsiMemProtectCache: пропущено %.0f%% из %.0f VirtualProtect/с\n", 100.0 * g_skipped / g_calls, g_calls / secs);
+		Appendf(out, Tr("AsiMemProtectCache: пропущено %.0f%% из %.0f VirtualProtect/с\n", "AsiMemProtectCache: skipped %.0f%% of %.0f VirtualProtect/s\n"), 100.0 * g_skipped / g_calls, g_calls / secs);
 	g_calls = g_skipped = 0;
 }
 

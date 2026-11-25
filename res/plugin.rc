@@ -33,6 +33,7 @@ END
 
 // default ModernFpsBoost.ini, written next to the .asi when it is missing (UTF-8)
 IDR_DEFAULT_INI RCDATA "ModernFpsBoost.ini"
+IDR_DEFAULT_INI_EN RCDATA "ModernFpsBoost_en.ini"
 
 // menu background (JPEG)
 IDR_BACKGROUND RCDATA "background.jpg"

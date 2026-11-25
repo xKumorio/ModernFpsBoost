@@ -5,7 +5,8 @@
 
 class Ini {
 public:
-	void Open(); // creates the file from the default if it does not exist
+	void Open(); // creates the file from the default if it does not exist, or rewrites on language change
+	bool SetLanguage(bool english) const; // switches g_english and rewrites the ini comments while keeping settings
 	int   Int(const char *section, const char *key, int def) const;
 	bool  Bool(const char *section, const char *key, bool def) const { return Int(section, key, def ? 1 : 0) != 0; }
 	float Float(const char *section, const char *key, float def) const;

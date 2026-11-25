@@ -53,7 +53,7 @@ static void Apply()
 static void Report(std::string &out, double secs)
 {
 	if (g_calls)
-		Appendf(out, "CursorCenterFix: пропущено %.0f%% из %.0f SetCursorPos/с\n", 100.0 * g_skipped / g_calls, g_calls / secs);
+		Appendf(out, Tr("CursorCenterFix: пропущено %.0f%% из %.0f SetCursorPos/с\n", "CursorCenterFix: skipped %.0f%% of %.0f SetCursorPos/s\n"), 100.0 * g_skipped / g_calls, g_calls / secs);
 	g_calls = g_skipped = 0;
 }
 

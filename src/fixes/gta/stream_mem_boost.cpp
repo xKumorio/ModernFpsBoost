@@ -79,7 +79,7 @@ static void Report(std::string &out, double)
 {
 	uint32_t used = *(const uint32_t *)kStreamMemUsed;
 	uint32_t avail = *(const uint32_t *)kStreamMemAvailable;
-	Appendf(out, "StreamMemBoost: занято %.0f / %.0f МБ ОЗУ стриминга\n",
+	Appendf(out, Tr("StreamMemBoost: занято %.0f / %.0f МБ ОЗУ стриминга\n", "StreamMemBoost: %.0f / %.0f MB streaming RAM used\n"),
 	        used / (1024.0 * 1024.0), avail / (1024.0 * 1024.0));
 }
 

@@ -570,7 +570,7 @@ static bool Attach(BYTE *samp)
 
 static void Report(std::string &out, double secs)
 {
-	Appendf(out, "TextCache в секунду: из кеша %.0f, записано %.0f, мимо %.0f (выкл/аргументы %.0f, без спрайта %.0f, обрезка+выравнивание %.0f, далеко %.0f, длинные %.0f, не кешируются %.0f, первый раз %.0f)\n",
+	Appendf(out, Tr("TextCache в секунду: из кеша %.0f, записано %.0f, мимо %.0f (выкл/аргументы %.0f, без спрайта %.0f, обрезка+выравнивание %.0f, далеко %.0f, длинные %.0f, не кешируются %.0f, первый раз %.0f)\n", "TextCache/s: hits %.0f, misses %.0f, bypass %.0f (off/args %.0f, no sprite %.0f, clip+align %.0f, far %.0f, long %.0f, uncacheable %.0f, first %.0f)\n"),
 	        g_hits / secs, g_misses / secs, g_bypass / secs, g_bypassWhy[0] / secs, g_bypassWhy[1] / secs, g_bypassWhy[2] / secs,
 	        g_bypassWhy[3] / secs, g_bypassWhy[4] / secs, g_bypassWhy[5] / secs, g_bypassWhy[6] / secs);
 	if (!g_statsSeconds) {

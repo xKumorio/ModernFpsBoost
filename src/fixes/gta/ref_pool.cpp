@@ -85,7 +85,7 @@ static void Apply()
 
 static void Report(std::string &out, double)
 {
-	Appendf(out, "RefPool: добавлено блоков: %d по %d ссылок\n", g_refBlocks, g_refBlock);
+	Appendf(out, Tr("RefPool: добавлено блоков: %d по %d ссылок\n", "RefPool: %d extra blocks of %d refs\n"), g_refBlocks, g_refBlock);
 }
 
 static const Param kParams[] = {

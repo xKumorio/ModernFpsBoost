@@ -45,3 +45,9 @@ struct Fix {
 
 template <size_t N>
 constexpr int Count(const Param (&)[N]) { return (int)N; }
+
+const char *FixTitle(const Fix *f);
+const char *FixGain(const Fix *f);
+const char *FixSummary(const Fix *f);
+const char *FixDetails(const Fix *f);
+const char *ParamLabel(const Fix *f, const Param &p);

@@ -148,7 +148,7 @@ static bool Apply(BYTE *)
 static void Report(std::string &out, double secs)
 {
 	if (g_objRun + g_objSkipped)
-		Appendf(out, "ObjectSkip: пропущено %.0f%% обработок объектов (%.0f/с обработано, %.0f/с пропущено)\n",
+		Appendf(out, Tr("ObjectSkip: пропущено %.0f%% обработок объектов (%.0f/с обработано, %.0f/с пропущено)\n", "ObjectSkip: skipped %.0f%% of object checks (%.0f/s processed, %.0f/s skipped)\n"),
 		        100.0 * g_objSkipped / (g_objRun + g_objSkipped), g_objRun / secs, g_objSkipped / secs);
 	g_objRun = g_objSkipped = 0;
 }

@@ -76,7 +76,7 @@ static void Apply()
 static void Report(std::string &out, double secs)
 {
 	if (g_low + g_detailed + g_noLow)
-		Appendf(out, "VehicleLod: машин %.0f/с упрощённых, %.0f/с подробных (ближе lod_m), %.0f/с подробных без упрощённой модели\n",
+		Appendf(out, Tr("VehicleLod: машин %.0f/с упрощённых, %.0f/с подробных (ближе lod_m), %.0f/с подробных без упрощённой модели\n", "VehicleLod: %.0f/s LOD, %.0f/s detailed (within lod_m), %.0f/s detailed (no LOD model)\n"),
 		        g_low / secs, g_detailed / secs, g_noLow / secs);
 	g_low = g_detailed = g_noLow = 0;
 }

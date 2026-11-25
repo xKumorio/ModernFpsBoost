@@ -116,7 +116,7 @@ static void Apply()
 static void Report(std::string &out, double secs)
 {
 	if (g_hits + g_walks + g_rebuilds)
-		Appendf(out, "ModelNameLookup: поисков по имени %.0f/с из таблицы, %.1f/с перестроек таблицы, %.1f/с перебором\n", g_hits / secs,
+		Appendf(out, Tr("ModelNameLookup: поисков по имени %.0f/с из таблицы, %.1f/с перестроек таблицы, %.1f/с перебором\n", "ModelNameLookup: %.0f/s table hits, %.1f/s rebuilds, %.1f/s linear scans\n"), g_hits / secs,
 		        g_rebuilds / secs, g_walks / secs);
 	g_hits = g_rebuilds = g_walks = 0;
 }

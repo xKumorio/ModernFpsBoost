@@ -114,7 +114,7 @@ static void Report(std::string &out, double secs)
 	unsigned total = g_vpCalls + g_vqCalls;
 	unsigned skipped = g_vpSkipped + g_vqSkipped;
 	if (total)
-		Appendf(out, "LuaMemProtectCache: пропущено %.0f%% из %.0f VirtualProtect/Query/с\n", 100.0 * skipped / total, total / secs);
+		Appendf(out, Tr("LuaMemProtectCache: пропущено %.0f%% из %.0f VirtualProtect/Query/с\n", "LuaMemProtectCache: skipped %.0f%% of %.0f VirtualProtect/Query/s\n"), 100.0 * skipped / total, total / secs);
 	g_vpCalls = g_vpSkipped = g_vqCalls = g_vqSkipped = 0;
 }
 

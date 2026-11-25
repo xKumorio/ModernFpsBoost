@@ -49,7 +49,7 @@ bool Button(const char *id, const char *icon, const char *label, bool primary, f
 bool Segmented(const char *id, const char *const *items, int count, int *current);
 bool SliderInt(const char *id, int *v, int min, int max, const char *fmt, float width);
 bool SliderFloat(const char *id, float *v, float min, float max, const char *fmt, float width);
-bool SearchBox(const char *id, char *buf, int size, float width, const char *hint = "Поиск");
+bool SearchBox(const char *id, char *buf, int size, float width, const char *hint = "Search");
 bool MenuItem(const char *icon, const char *label); // in a context menu
 void ShowToast(const char *text);                     // subtle status confirmation at bottom
 void DrawToast(ImVec2 windowMin, ImVec2 windowMax);

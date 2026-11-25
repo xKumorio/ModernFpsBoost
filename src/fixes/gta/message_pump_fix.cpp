@@ -87,7 +87,7 @@ static void Apply()
 static void Report(std::string &out, double secs)
 {
 	if (g_calls)
-		Appendf(out, "MessagePumpFix: пропущено %.0f%% из %.0f PeekMessageA/с\n", 100.0 * g_skipped / g_calls, g_calls / secs);
+		Appendf(out, Tr("MessagePumpFix: пропущено %.0f%% из %.0f PeekMessageA/с\n", "MessagePumpFix: skipped %.0f%% of %.0f PeekMessageA/s\n"), 100.0 * g_skipped / g_calls, g_calls / secs);
 	g_calls = g_skipped = 0;
 }
 

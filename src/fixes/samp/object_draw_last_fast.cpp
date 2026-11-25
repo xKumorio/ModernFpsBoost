@@ -93,7 +93,7 @@ static bool Apply(BYTE *)
 static void Report(std::string &out, double secs)
 {
 	if (g_framesCount)
-		Appendf(out, "ObjectDrawLastFast: убрано %.0f обнулений 8 КБ/с (%.0f%% пустых)\n",
+		Appendf(out, Tr("ObjectDrawLastFast: убрано %.0f обнулений 8 КБ/с (%.0f%% пустых)\n", "ObjectDrawLastFast: avoided %.0f 8 KB clears/s (%.0f%% empty)\n"),
 		        g_framesCount / secs, 100.0 * g_emptyFrames / g_framesCount);
 	g_framesCount = g_emptyFrames = 0;
 }

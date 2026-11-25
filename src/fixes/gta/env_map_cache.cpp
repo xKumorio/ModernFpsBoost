@@ -59,7 +59,7 @@ static void Apply()
 static void Report(std::string &out, double secs)
 {
 	if (g_envCalls)
-		Appendf(out, "EnvMapCache: пропущено %.0f%% из %.0f обходов отражений машин/с\n", 100.0 * g_envSkipped / g_envCalls, g_envCalls / secs);
+		Appendf(out, Tr("EnvMapCache: пропущено %.0f%% из %.0f обходов отражений машин/с\n", "EnvMapCache: skipped %.0f%% of %.0f vehicle reflection walks/s\n"), 100.0 * g_envSkipped / g_envCalls, g_envCalls / secs);
 	g_envCalls = g_envSkipped = 0;
 }
 

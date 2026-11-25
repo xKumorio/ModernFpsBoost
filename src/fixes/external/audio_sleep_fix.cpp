@@ -163,7 +163,7 @@ static void PlayOffTheGameThread()
 
 static void Report(std::string &out, double secs)
 {
-	if (g_queued) Appendf(out, "AudioSleepFix: звуков скриптов %.1f/с запущено вне потока игры\n", g_queued / secs);
+	if (g_queued) Appendf(out, Tr("AudioSleepFix: звуков скриптов %.1f/с запущено вне потока игры\n", "AudioSleepFix: %.1f script sounds/s started off main thread\n"), g_queued / secs);
 	g_queued = 0;
 }
 

@@ -67,7 +67,7 @@ static bool Apply(BYTE *samp)
 static void Report(std::string &out, double secs)
 {
 	if (g_unprotCalls)
-		Appendf(out, "UnprotectCache: пропущено %.0f%% из %.0f VirtualProtect/с\n", 100.0 * g_unprotSkipped / g_unprotCalls, g_unprotCalls / secs);
+		Appendf(out, Tr("UnprotectCache: пропущено %.0f%% из %.0f VirtualProtect/с\n", "UnprotectCache: skipped %.0f%% of %.0f VirtualProtect/s\n"), 100.0 * g_unprotSkipped / g_unprotCalls, g_unprotCalls / secs);
 	g_unprotCalls = g_unprotSkipped = 0;
 }
 

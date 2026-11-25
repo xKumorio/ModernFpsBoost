@@ -75,7 +75,7 @@ static bool Apply(BYTE *)
 static void Report(std::string &out, double secs)
 {
 	if (g_objFindCalls)
-		Appendf(out, "ObjectFindCache: %.0f%% из %.0f поисков/с из кеша\n", 100.0 * g_objFindHits / g_objFindCalls, g_objFindCalls / secs);
+		Appendf(out, Tr("ObjectFindCache: %.0f%% из %.0f поисков/с из кеша\n", "ObjectFindCache: %.0f%% of %.0f lookups/s from cache\n"), 100.0 * g_objFindHits / g_objFindCalls, g_objFindCalls / secs);
 	g_objFindCalls = g_objFindHits = 0;
 }
 

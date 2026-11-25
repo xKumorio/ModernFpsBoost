@@ -106,7 +106,7 @@ static bool Apply(BYTE *)
 
 static void Report(std::string &out, double)
 {
-	Appendf(out, "PlayerLoop: игроков с педом в этом кадре: %lu\n", g_plN);
+	Appendf(out, Tr("PlayerLoop: игроков с педом в этом кадре: %lu\n", "PlayerLoop: streamed players this frame: %lu\n"), g_plN);
 }
 
 Fix g_fixPlayerLoop = {

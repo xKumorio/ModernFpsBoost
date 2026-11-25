@@ -77,7 +77,7 @@ static void Apply()
 static void Report(std::string &out, double secs)
 {
 	if (g_split + g_whole)
-		Appendf(out, "StreamBudget: пачек моделей %.1f/с разбито на несколько кадров, %.1f/с уложились в один\n", g_split / secs, g_whole / secs);
+		Appendf(out, Tr("StreamBudget: пачек моделей %.1f/с разбито на несколько кадров, %.1f/с уложились в один\n", "StreamBudget: %.1f/s batches split across frames, %.1f/s fit in one\n"), g_split / secs, g_whole / secs);
 	g_split = g_whole = 0;
 }
 

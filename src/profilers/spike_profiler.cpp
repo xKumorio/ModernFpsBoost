@@ -172,7 +172,7 @@ static void TopTimers(std::string &out, bool spike)
 	}
 	for (int k = 0; k < 3 && best[k] >= 0; k++) {
 		char buf[160];
-		_snprintf_s(buf, _TRUNCATE, "%s%s %.1f мс", k ? ", " : "", SampProfilerTimerLabel(best[k]), bestOwn[k]);
+		_snprintf_s(buf, _TRUNCATE, Tr("%s%s %.1f мс", "%s%s %.1f ms"), k ? ", " : "", SampProfilerTimerLabel(best[k]), bestOwn[k]);
 		out += buf;
 	}
 }
@@ -426,7 +426,7 @@ static void DescribeSamples(std::string &out)
 			if (count[j] > 0 && (best < 0 || count[j] > count[best])) best = j;
 		if (best < 0) break;
 		char head[48];
-		sprintf_s(head, "%s%d из %d: ", shown ? "\n" : "", count[best], n);
+		sprintf_s(head, Tr("%s%d из %d: ", "%s%d of %d: "), shown ? "\n" : "", count[best], n);
 		out += head;
 		out += lines[best];
 		count[best] = 0;
@@ -561,8 +561,9 @@ int SpikeProfilerFrames(float *out, int max)
 
 const char *SpikeCauseName(int cause)
 {
-	static const char *const names[SPIKE_CAUSES] = { "код игры и плагинов", "ожидание: диск, блокировка, Sleep", "Present: видеокарта, DXVK, лимит FPS" };
-	return cause >= 0 && cause < SPIKE_CAUSES ? names[cause] : "";
+	static const char *const namesRu[SPIKE_CAUSES] = { "код игры и плагинов", "ожидание: диск, блокировка, Sleep", "Present: видеокарта, DXVK, лимит FPS" };
+	static const char *const namesEn[SPIKE_CAUSES] = { "game & plugin code", "wait: disk, lock, Sleep", "Present: GPU, DXVK, FPS limit" };
+	return cause >= 0 && cause < SPIKE_CAUSES ? (g_english ? namesEn[cause] : namesRu[cause]) : "";
 }
 
 std::string SpikeProfilerText()
@@ -571,19 +572,22 @@ std::string SpikeProfilerText()
 	std::string out;
 	char buf[1024];
 	auto fps = [](float ms) { return ms > 0 ? 1000.0f / ms : 0.0f; };
-	sprintf_s(buf, "Замер %.0f с, %d кадров. Средний %.2f мс (%.0f FPS), 1%% low %.2f мс (%.0f FPS), 0.1%% low %.2f мс (%.0f FPS), худший %.1f мс\n",
+	sprintf_s(buf, Tr("Замер %.0f с, %d кадров. Средний %.2f мс (%.0f FPS), 1%% low %.2f мс (%.0f FPS), 0.1%% low %.2f мс (%.0f FPS), худший %.1f мс\n",
+	                  "Sample %.0f s, %d frames. Avg %.2f ms (%.0f FPS), 1%% low %.2f ms (%.0f FPS), 0.1%% low %.2f ms (%.0f FPS), worst %.1f ms\n"),
 	          s.seconds, s.frames, s.avgMs, fps(s.avgMs), s.low1Ms, fps(s.low1Ms), s.low01Ms, fps(s.low01Ms), s.worstMs);
 	out += buf;
-	sprintf_s(buf, "Кадр в среднем: код %.0f%%, ожидание %.0f%%, Present %.0f%%. Ввод -> конец Present: %.2f мс, 1%% худших %.2f мс\n",
+	sprintf_s(buf, Tr("Кадр в среднем: код %.0f%%, ожидание %.0f%%, Present %.0f%%. Ввод -> конец Present: %.2f мс, 1%% худших %.2f мс\n",
+	                  "Avg frame: code %.0f%%, wait %.0f%%, Present %.0f%%. Input -> end Present: %.2f ms, worst 1%% %.2f ms\n"),
 	          s.cpuShare * 100, s.waitShare * 100, s.presentShare * 100, s.inputMs, s.inputWorstMs);
 	out += buf;
-	sprintf_s(buf, "Фризов %d (%.1f в минуту):\n", s.spikes, s.seconds > 0 ? s.spikes * 60.0 / s.seconds : 0.0);
+	sprintf_s(buf, Tr("Фризов %d (%.1f в минуту):\n", "Stutters %d (%.1f/min):\n"), s.spikes, s.seconds > 0 ? s.spikes * 60.0 / s.seconds : 0.0);
 	out += buf;
 	for (int k = 0; k < SPIKE_CAUSES; k++) {
-		sprintf_s(buf, "  %s: %d, лишних %.0f мс\n", SpikeCauseName(k), s.causeCount[k], s.causeMs[k]);
+		sprintf_s(buf, Tr("  %s: %d, лишних %.0f мс\n", "  %s: %d, extra %.0f ms\n"), SpikeCauseName(k), s.causeCount[k], s.causeMs[k]);
 		out += buf;
 	}
-	out += "время\tкадр мс\tобычный\tкод\tожидание\tPresent\tмодели КБ\tстр.ошибки\tпричина\tфункции\n";
+	out += Tr("время\tкадр мс\tобычный\tкод\tожидание\tPresent\tмодели КБ\tстр.ошибки\tпричина\tфункции\n",
+	          "time\tframe ms\tnormal\tcode\twait\tPresent\tmodels KB\tpagefaults\tcause\tfunctions\n");
 	for (const SpikeRow &r : g_rows) {
 		sprintf_s(buf, "%.1f\t%.1f\t%.1f\t%.1f\t%.1f\t%.1f\t%d\t%lu\t%s\t", r.at, r.ms, r.normal, r.cpu, r.wait, r.present, r.streamKb, r.faults,
 		          SpikeCauseName(r.cause));
@@ -591,7 +595,7 @@ std::string SpikeProfilerText()
 		out += r.top;
 		out += "\n";
 		if (!r.stack.empty()) {
-			out += "  где стояла игра (снимки стека):\n  ";
+			out += Tr("  где стояла игра (снимки стека):\n  ", "  where the game stalled (stack samples):\n  ");
 			for (char ch : r.stack) {
 				out += ch;
 				if (ch == '\n') out += "  ";
