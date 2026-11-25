@@ -42,11 +42,13 @@ typedef HRESULT(__stdcall *Reset_t)(IDirect3DDevice9 *, D3DPRESENT_PARAMETERS *)
 typedef HRESULT(__stdcall *Present_t)(IDirect3DDevice9 *, const RECT *, const RECT *, HWND, const RGNDATA *);
 static Reset_t oReset;
 static Present_t oPresentOuter, oPresent;
+static IDirect3DDevice9 *g_outerDevice;
 static void **g_outerVt;
 static bool g_realHooked, g_singleHook;
 static IDirect3DDevice9 *g_realDevice;
 static thread_local bool g_insideOuter, g_frameDrawn, g_realSeen;
 static bool g_useOuter;
+static volatile DWORD g_lastFrameTick;
 
 static HWND g_window;
 static WNDPROC g_prevProc;
@@ -62,6 +64,7 @@ static bool g_spSaved;
 static BYTE g_spOrig541DF5[5], g_spOrig53F417[5], g_spOrig53F41F[4], g_spOrig6194A0[1];
 
 static void GreetInChat();
+static void SetSingleplayerCursor(bool lock);
 
 // ---------------------------------------------------------------- input
 
@@ -89,9 +92,25 @@ static void TypeChars(WPARAM vk, LPARAM lp)
 		if (buf[k] >= 32 && buf[k] != 127) ImGui::GetIO().AddInputCharacterUTF16(buf[k]);
 }
 
+static bool IsOverlayAlive()
+{
+	if (g_overlayFaulted || g_imguiFailed) return false;
+	DWORD last = g_lastFrameTick;
+	return last != 0 && (GetTickCount() - last) < 1500;
+}
+
 // true: the message is the menu's
 static bool MenuInput(HWND w, UINT m, WPARAM wp, LPARAM lp)
 {
+	if (!IsOverlayAlive()) {
+		if (g_open) {
+			g_open = false;
+			if (g_spLocked) SetSingleplayerCursor(false);
+		}
+		if ((m == WM_KEYDOWN || m == WM_SYSKEYDOWN) && (int)wp == g_ui.key && !(lp & (1 << 30)))
+			Log("Menu: key 0x%02X ignored (Present hook not receiving frames yet)", g_ui.key);
+		return false;
+	}
 	if (m == WM_KEYDOWN || m == WM_SYSKEYDOWN) {
 		if (g_open && g_captureKey) {
 			if (wp != VK_ESCAPE) {
@@ -527,6 +546,7 @@ static void OnFrame(IDirect3DDevice9 *device)
 
 static void OnFrameSafe(IDirect3DDevice9 *device)
 {
+	g_lastFrameTick = GetTickCount();
 	if (g_overlayFaulted || !device) return;
 	__try {
 		OnFrame(device);
@@ -729,13 +749,61 @@ static DWORD WINAPI HookThread(LPVOID)
 	if (!dev || !IsReadableRange(dev, sizeof(void *))) return 0;
 	void **vt = *(void ***)dev;
 	if (!vt || !IsReadableRange(vt, (kVtPresent + 1) * sizeof(void *))) return 0;
+	g_outerDevice = dev;
 	g_outerVt = vt;
 	oPresentOuter = (Present_t)g_outerVt[kVtPresent];
 	if (!oPresentOuter) return 0;
+	MemoryBarrier();
 	void *hook = (void *)hkPresentOuter;
 	if (PatchBytes((DWORD)&g_outerVt[kVtPresent], nullptr, &hook, 4))
 		Log("Menu: Present hooked, key 0x%02X opens the menu", g_ui.key);
-	return 0;
+
+	// Lightweight watchdog: Windows d3d9.dll resets CD3DHal's writable vtable back to clean Present
+	// on Reset()/mode switches, and late-loading proxies (SA-MP/SAMPFUNCS/ENB) can swap kDevicePtr
+	// after our initial 1s delay. Re-attach automatically without disturbing chaining third-party hooks.
+	for (;;) {
+		Sleep(500);
+		if (g_overlayFaulted) return 0;
+		IDirect3DDevice9 *curOuter = *(IDirect3DDevice9 **)kDevicePtr;
+		if (!curOuter || !IsReadableRange(curOuter, sizeof(void *))) continue;
+		void **curVt = *(void ***)curOuter;
+		if (!curVt || !IsReadableRange(curVt, (kVtPresent + 1) * sizeof(void *))) continue;
+
+		void *curPresent = curVt[kVtPresent];
+		if (curOuter != g_outerDevice || curVt != g_outerVt) {
+			if (curPresent && curPresent != (void *)hkPresentOuter && curPresent != (void *)hkPresent) {
+				g_outerDevice = curOuter;
+				g_outerVt = curVt;
+				oPresentOuter = (Present_t)curPresent;
+				g_realHooked = false;
+				g_singleHook = false;
+				g_realDevice = nullptr;
+				g_useOuter = false;
+				MemoryBarrier();
+				if (PatchBytes((DWORD)&curVt[kVtPresent], nullptr, &hook, 4))
+					Log("Menu: Present re-hooked after device/vtable change (dev %p, vt %p)", curOuter, curVt);
+			}
+			continue;
+		}
+
+		if (curPresent == (void *)oPresentOuter) {
+			if (PatchBytes((DWORD)&curVt[kVtPresent], nullptr, &hook, 4))
+				Log("Menu: Present hook restored after vtable reset (vt %p)", curVt);
+			continue;
+		}
+
+		if (curPresent && curPresent != (void *)hkPresentOuter && curPresent != (void *)hkPresent) {
+			DWORD last = g_lastFrameTick;
+			bool stalled = (last == 0) || (GetTickCount() - last >= 2000);
+			bool visible = !g_window || !IsIconic(g_window);
+			if (stalled && visible) {
+				oPresentOuter = (Present_t)curPresent;
+				MemoryBarrier();
+				if (PatchBytes((DWORD)&curVt[kVtPresent], nullptr, &hook, 4))
+					Log("Menu: Present re-hooked after stalled third-party hook (vt %p)", curVt);
+			}
+		}
+	}
 }
 
 void SaveUiConfig()
