@@ -1,5 +1,7 @@
 # ModernFpsBoost
 
+**Русский** | [English](README_EN.md)
+
 Глубокая оптимизация FPS для **GTA:SA 1.0 US** + **SA-MP 0.3.7 R1 / R2 / R3-1 / R4 / R5-1** и **0.3.DL-R1**.
 Каждый фикс вынесен в отдельную секцию `ModernFpsBoost.ini` (`enabled=1/0`) и управляется прямо в игре через меню **F9**.
 

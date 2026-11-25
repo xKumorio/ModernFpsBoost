@@ -60,32 +60,44 @@ static inline void FastSinCos(float a, float &s, float &c)
 	}
 }
 
-static inline __m128 BoundSphereWorld(const BYTE *ent, float &outRadius)
+static inline bool BoundSphereWorld(const BYTE *ent, __m128 &outCenter, float &outRadius)
 {
-	const int16_t modelId = *(const int16_t *)(ent + 0x22);
-	const BYTE *mi = ((const BYTE *const *)kModelInfoPtrs)[modelId];
+	// Read live ms_modelInfoPtrs pointer & sign-extension opcode from 0x5343F6/0x5343FD so
+	// OpenSAA, III.VC.SA.LimitAdjuster, fastman92, and SA-MP 0.3.DL custom models never crash.
+	const BYTE *const *ptrs = *(const BYTE *const *const *)0x5343FD;
+	const int modelId = (*(const BYTE *)0x5343F7 == 0xB7)
+		? (int)*(const uint16_t *)(ent + 0x22)
+		: (int)*(const int16_t *)(ent + 0x22);
+	if (!ptrs || modelId < 0) return false;
+	if (ptrs == (const BYTE *const *)kModelInfoPtrs && modelId >= 20000) return false;
+	const BYTE *mi = ptrs[modelId];
+	if (!mi) return false;
 	const BYTE *col = *(const BYTE *const *)(mi + 0x14);
+	if (!col) return false;
 	// CColModel::m_boundSphere at col+0x18: { cx, cy, cz, radius }
 	const float *bs = (const float *)(col + 0x18);
 	outRadius = bs[3];
 
 	const CMatrix *m = *(const CMatrix *const *)(ent + 0x14);
 	if (m) {
-		return _mm_add_ps(
+		outCenter = _mm_add_ps(
 			_mm_add_ps(_mm_mul_ps(_mm_set1_ps(bs[0]), _mm_loadu_ps(&m->rx)),
 			           _mm_mul_ps(_mm_set1_ps(bs[1]), _mm_loadu_ps(&m->ux))),
 			_mm_add_ps(_mm_mul_ps(_mm_set1_ps(bs[2]), _mm_loadu_ps(&m->ax)),
 			           _mm_loadu_ps(&m->px)));
+		return true;
 	}
 	// CSimpleTransform at ent+0x04: { x, y, z, heading }
 	const float *st = (const float *)(ent + 0x04);
 	const float h = st[3];
 	if (h == 0.0f) {
-		return _mm_add_ps(_mm_loadu_ps(st), _mm_loadu_ps(bs));
+		outCenter = _mm_add_ps(_mm_loadu_ps(st), _mm_loadu_ps(bs));
+		return true;
 	}
 	float s, c;
 	FastSinCos(h, s, c);
-	return _mm_set_ps(0.0f, st[2] + bs[2], c * bs[1] + s * bs[0] + st[1], c * bs[0] - s * bs[1] + st[0]);
+	outCenter = _mm_set_ps(0.0f, st[2] + bs[2], c * bs[1] + s * bs[0] + st[1], c * bs[0] - s * bs[1] + st[0]);
+	return true;
 }
 
 static inline float DistSq3(__m128 a, __m128 b)
@@ -99,17 +111,20 @@ static inline float DistSq3(__m128 a, __m128 b)
 
 static int __fastcall hkGetIsTouchingEnt(const BYTE *self, void *, const BYTE *other)
 {
+	__m128 c1, c2;
 	float r1, r2;
-	__m128 c1 = BoundSphereWorld(self, r1);
-	__m128 c2 = BoundSphereWorld(other, r2);
+	if (!self || !other || !BoundSphereWorld(self, c1, r1) || !BoundSphereWorld(other, c2, r2))
+		return 0;
 	float rsum = r1 + r2;
 	return DistSq3(c1, c2) < rsum * rsum ? 1 : 0;
 }
 
 static int __fastcall hkGetIsTouchingPt(const BYTE *self, void *, const Vec3 *pt, float radius)
 {
+	__m128 c1;
 	float r1;
-	__m128 c1 = BoundSphereWorld(self, r1);
+	if (!self || !pt || !BoundSphereWorld(self, c1, r1))
+		return 0;
 	__m128 c2 = _mm_set_ps(0.0f, pt->z, pt->y, pt->x);
 	float rsum = r1 + radius;
 	return DistSq3(c1, c2) < rsum * rsum ? 1 : 0;

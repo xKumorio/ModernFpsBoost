@@ -23,11 +23,13 @@ static int g_entOff = 0x40, g_drawnOff = 0x118F;
 
 static bool OnScreen(BYTE *ent)
 {
-	short model = *(short *)(ent + 0x22);
-	if (model < 0 || model >= 20000) return true;
-	BYTE *mi = kModelInfos[model];
+	const BYTE *const *ptrs = *(const BYTE *const *const *)0x5343FD;
+	int model = (*(const BYTE *)0x5343F7 == 0xB7) ? (int)*(const unsigned short *)(ent + 0x22) : (int)*(const short *)(ent + 0x22);
+	if (!ptrs || model < 0) return true;
+	if (ptrs == (const BYTE *const *)kModelInfos && model >= 20000) return true;
+	const BYTE *mi = ptrs[model];
 	if (!mi) return true;
-	BYTE *col = *(BYTE **)(mi + 0x14);
+	const BYTE *col = *(const BYTE *const *)(mi + 0x14);
 	if (!col) return true;
 	const float *c = (const float *)(col + 0x18);
 	float r = *(const float *)(col + 0x24) + 1.0f, w[3];

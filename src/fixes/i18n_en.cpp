@@ -244,6 +244,13 @@ static const FixEn kFixEn[] = {
 		"GTA treats every remote player as a local ped: every frame their bounding spheres are tested against map triangles, even while standing AFK, despite the server dictating their position.\n\nBeyond min_distance meters, remote peds disable map collision and gravity and move purely by packet velocity (kinematic). Your bullets, vehicles, hits, and your own ped are untouched. Full physics applies nearby.",
 	},
 	{
+		"RemoteInAir",
+		"Remote player IsInAir cache",
+		"-4.5% frame",
+		"Stops casting a downward ray under stationary remote players every frame.",
+		"GTA's AI event scanner casts a vertical ray through the map for every ped every frame to check if they should enter a fall animation. 100 players = 100 rays per frame.\n\nFor remote peds, the result is cached while the ped stands still for up to max_age_ms. Moving peds and your own ped are checked normally.",
+	},
+	{
 		"SearchLightCull",
 		"Cull off-screen searchlights",
 		"up to -1.5% frame",
@@ -449,6 +456,8 @@ static const ParamEn kParamEn[] = {
 	{ "PedDrawDistance", "max_m", "Distance, m" },
 	{ "RefPool", "block", "Refs per block" },
 	{ "RefPool", "max_blocks", "Max blocks" },
+	{ "RemotePedPhysics", "min_distance", "Distance, m" },
+	{ "RemoteInAir", "max_age_ms", "Cache duration, ms" },
 	{ "StreamBudget", "budget_kb", "Per frame, KB" },
 	{ "StreamMemBoost", "memory_mb", "Streaming RAM, MB" },
 	{ "VehicleLod", "lod_m", "Detailed within, m" },
