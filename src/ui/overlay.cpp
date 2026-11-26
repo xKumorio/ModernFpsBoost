@@ -55,9 +55,8 @@ static WNDPROC g_prevProc;
 static bool g_isUnicodeWnd;
 static bool g_open;
 static float g_openAnim;
-static bool g_imgui, g_imguiFailed, g_overlayFaulted;
+static bool g_imgui, g_imguiFailed, g_overlayFaulted, g_cjkLoaded;
 static thread_local const char *g_overlayStage = "idle";
-static bool g_overlayTraceOpen;
 static DWORD g_overlayExceptionCode, g_overlayExceptionEip, g_overlayExceptionAccess;
 static void *g_overlayExceptionAddress, *g_overlayExceptionTarget;
 
@@ -142,7 +141,6 @@ static bool MenuInput(HWND w, UINT m, WPARAM wp, LPARAM lp)
 		if ((int)wp == g_ui.key) {
 			if (!(lp & (1 << 30))) {
 				g_open = !g_open;
-				if (g_open) g_overlayTraceOpen = true;
 				Log("Menu: key 0x%02X, %s", g_ui.key, g_open ? "open" : "closed");
 				if (g_imgui) ImGui::GetIO().ClearInputKeys(); // keys held across the switch are not stuck in the menu
 			}
@@ -478,12 +476,10 @@ static bool InitImGui(IDirect3DDevice9 *device)
 	io.MouseDrawCursor = false;
 	io.ConfigErrorRecoveryEnableAssert = false; // a UI mistake must not take the game down
 	g_overlayStage = "imgui.load_fonts";
-	Log("Menu: init stage fonts begin (device=%p window=%p language=%d)", device, g_window, g_ui.language);
 	LoadFonts();
-	Log("Menu: init stage fonts done (body=%p medium=%p title=%p tiny=%p mono=%p)", g_fonts.body, g_fonts.medium, g_fonts.title, g_fonts.tiny, g_fonts.mono);
+	g_cjkLoaded = (g_ui.language == 1);
 	g_overlayStage = "imgui.apply_theme";
 	ApplyTheme();
-	Log("Menu: init stage theme done");
 	g_overlayStage = "imgui.win32_init";
 	if (!ImGui_ImplWin32_Init(g_window)) {
 		Log("Menu: Win32 backend init failed (window=%p error=%lu)", g_window, GetLastError());
@@ -491,7 +487,6 @@ static bool InitImGui(IDirect3DDevice9 *device)
 		ZeroMemory(&g_fonts, sizeof(g_fonts));
 		return false;
 	}
-	Log("Menu: init stage Win32 done");
 	g_overlayStage = "imgui.d3d9_init";
 	if (!RenderInit(device)) {
 		Log("Menu: D3D9 renderer init failed (device=%p)", device);
@@ -501,19 +496,6 @@ static bool InitImGui(IDirect3DDevice9 *device)
 		ZeroMemory(&g_fonts, sizeof(g_fonts));
 		return false;
 	}
-	const char *probe = "中文";
-	wchar_t decoded[3] = {};
-	bool validUtf8 = MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, probe, -1, decoded, (int)(sizeof(decoded) / sizeof(decoded[0]))) == 3;
-	Log("Menu CJK diag: build=%s %s, language=%d, ACP=%u, utf8=%02X %02X %02X %02X %02X %02X valid=%d, glyphs body=%d medium=%d title=%d tiny=%d mono=%d",
-	    __DATE__, __TIME__, g_ui.language, GetACP(), (BYTE)probe[0], (BYTE)probe[1], (BYTE)probe[2], (BYTE)probe[3], (BYTE)probe[4], (BYTE)probe[5], validUtf8,
-	    g_fonts.body && g_fonts.body->FindGlyphNoFallback(0x4E2D) && g_fonts.body->FindGlyphNoFallback(0x6587),
-	    g_fonts.medium && g_fonts.medium->FindGlyphNoFallback(0x4E2D) && g_fonts.medium->FindGlyphNoFallback(0x6587),
-	    g_fonts.title && g_fonts.title->FindGlyphNoFallback(0x4E2D) && g_fonts.title->FindGlyphNoFallback(0x6587),
-	    g_fonts.tiny && g_fonts.tiny->FindGlyphNoFallback(0x4E2D) && g_fonts.tiny->FindGlyphNoFallback(0x6587),
-	    g_fonts.mono && g_fonts.mono->FindGlyphNoFallback(0x4E2D) && g_fonts.mono->FindGlyphNoFallback(0x6587));
-	char pluginPath[MAX_PATH] = {};
-	GetModuleFileNameA(g_module, pluginPath, MAX_PATH);
-	Log("Menu CJK diag: loaded plugin path=%s", pluginPath);
 	g_overlayStage = "imgui.background";
 	g_background = LoadResourceTexture(IDR_BACKGROUND, g_backgroundW, g_backgroundH);
 	if (!g_background) Log("Menu: background image not loaded");
@@ -570,6 +552,14 @@ static void OnFrame(IDirect3DDevice9 *device)
 	if (g_frames.count < 10 || !IsWindow(g_window) || IsIconic(g_window)) return;
 	if (device->TestCooperativeLevel() != D3D_OK) return;
 	if (!InitImGui(device)) return;
+	if (g_ui.language == 1 && !g_cjkLoaded) {
+		g_overlayStage = "imgui.reload_cjk";
+		RenderShutdown();
+		ImGui::GetIO().Fonts->Clear();
+		LoadFonts();
+		if (!RenderInit(device)) return;
+		g_cjkLoaded = true;
+	}
 	g_overlayStage = "frame.begin_scene";
 	HRESULT bhr = device->BeginScene();
 	if (FAILED(bhr)) {
@@ -635,10 +625,6 @@ static void OnFrameSafe(IDirect3DDevice9 *device)
 	if (g_overlayFaulted || !device) return;
 	__try {
 		OnFrame(device);
-		if (g_overlayTraceOpen) {
-			Log("Menu: first open frame completed (stage=%s)", g_overlayStage);
-			g_overlayTraceOpen = false;
-		}
 	} __except (CaptureOverlayException(GetExceptionInformation())) {
 		g_overlayFaulted = true;
 		g_open = false;
@@ -646,7 +632,6 @@ static void OnFrameSafe(IDirect3DDevice9 *device)
 		Log("Menu: exception 0x%08lX at %p (EIP=%p access=%lu target=%p stage=%s) - menu disabled, FPS fixes keep running",
 		    g_overlayExceptionCode, g_overlayExceptionAddress, (void *)g_overlayExceptionEip,
 		    g_overlayExceptionAccess, g_overlayExceptionTarget, g_overlayStage);
-		g_overlayTraceOpen = false;
 	}
 }
 
@@ -678,7 +663,7 @@ static void GreetInChat()
 	if (!chat || !addMessage || !IsReadableRange(addMessage, 4)) return;
 	done = true;
 
-	char keyName[64] = "7";
+	char keyName[64] = "F9";
 	if (g_ui.key >= VK_F1 && g_ui.key <= VK_F24)
 		sprintf_s(keyName, "F%d", g_ui.key - VK_F1 + 1);
 	else if (!GetKeyNameTextA(MapVirtualKeyA(g_ui.key, MAPVK_VK_TO_VSC) << 16, keyName, sizeof(keyName)))
@@ -949,7 +934,7 @@ void SaveUiConfig()
 
 void MenuStart(const Ini &ini)
 {
-	g_ui.key = ini.Int("Menu", "key", '7');
+	g_ui.key = ini.Int("Menu", "key", VK_F9);
 	g_ui.dim = ini.Int("Menu", "dim", 30);
 	g_ui.fpsOverlay = ini.Bool("Menu", "fps_overlay", false);
 	g_ui.overlayRefreshMs = ini.Int("Menu", "overlay_refresh_ms", 500);

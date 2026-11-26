@@ -129,7 +129,7 @@ static ImFont *AddIconFont(float size)
 
 void LoadFonts()
 {
-	g_fonts.body = AddTextFont("segoeui.ttf", 17.0f, true);
+	g_fonts.body = AddTextFont("segoeui.ttf", 17.0f, g_ui.language == 1);
 	// UiFont selects body for Chinese text, including after a language switch.
 	g_fonts.medium = AddTextFont("seguisb.ttf", 17.0f);
 	g_fonts.title = AddTextFont("seguisb.ttf", 24.0f);

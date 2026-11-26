@@ -9,7 +9,7 @@ struct ImFont;
 struct IDirect3DTexture9;
 
 struct UiConfig {
-	int  key = '7';              // [Menu] key: opens/closes the menu
+	int  key = VK_F9;            // [Menu] key: opens/closes the menu
 	int  dim = 85;               // [Menu] dim: background darkening, %
 	bool fpsOverlay = false;     // [Menu] fps_overlay: telemetry strip in the corner while menu is closed
 	int  overlayRefreshMs = 500; // [Menu] overlay_refresh_ms: HUD / monitor readout refresh cadence (200..1000 ms)
