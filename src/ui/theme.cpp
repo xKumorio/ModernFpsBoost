@@ -11,6 +11,7 @@
 #include "../../res/resource.h"
 #include "../core/plugin.h"
 #include "icons.h"
+#include "language.h"
 #include "ui.h"
 
 // ---------------------------------------------------------------- color / animation
@@ -69,7 +70,31 @@ static const ImWchar *TextRanges()
 	return ranges;
 }
 
-static ImFont *AddTextFont(const char *file, float size)
+static void MergeChineseGlyphs(ImFont *dst, float size)
+{
+	ImGuiIO &io = ImGui::GetIO();
+	static ImVector<ImWchar> ranges;
+	if (ranges.empty()) {
+		ImFontGlyphRangesBuilder builder;
+		builder.AddRanges(io.Fonts->GetGlyphRangesChineseSimplifiedCommon());
+		builder.AddText("函坠屏帧擎昵栈渲溢烁眩瞄聊迭锥频骼");
+		builder.BuildRanges(&ranges);
+	}
+	char dir[MAX_PATH];
+	GetWindowsDirectoryA(dir, MAX_PATH);
+	ImFontConfig cfg;
+	cfg.MergeMode = true;
+	cfg.DstFont = dst;
+	cfg.OversampleH = 1;
+	cfg.OversampleV = 1;
+	for (const char *name : { "msyh.ttc", "simsun.ttc", "Deng.ttf" }) {
+		std::string path = std::string(dir) + "\\Fonts\\" + name;
+		if (GetFileAttributesA(path.c_str()) == INVALID_FILE_ATTRIBUTES) continue;
+		if (io.Fonts->AddFontFromFileTTF(path.c_str(), size, &cfg, ranges.Data)) break;
+	}
+}
+
+static ImFont *AddTextFont(const char *file, float size, bool chinese = false)
 {
 	ImGuiIO &io = ImGui::GetIO();
 	char dir[MAX_PATH];
@@ -78,12 +103,15 @@ static ImFont *AddTextFont(const char *file, float size)
 	cfg.OversampleH = 3;
 	cfg.OversampleV = 1;
 	cfg.PixelSnapH = true;
+	ImFont *font = nullptr;
 	for (const char *name : { file, "segoeui.ttf", "arial.ttf" }) {
 		std::string path = std::string(dir) + "\\Fonts\\" + name;
 		if (GetFileAttributesA(path.c_str()) == INVALID_FILE_ATTRIBUTES) continue;
-		if (ImFont *f = io.Fonts->AddFontFromFileTTF(path.c_str(), size, &cfg, TextRanges())) return f;
+		if ((font = io.Fonts->AddFontFromFileTTF(path.c_str(), size, &cfg, TextRanges()))) break;
 	}
-	return io.Fonts->AddFontDefault();
+	if (!font) font = io.Fonts->AddFontDefault();
+	if (chinese) MergeChineseGlyphs(font, size);
+	return font;
 }
 
 static ImFont *AddIconFont(float size)
@@ -101,7 +129,8 @@ static ImFont *AddIconFont(float size)
 
 void LoadFonts()
 {
-	g_fonts.body = AddTextFont("segoeui.ttf", 17.0f);
+	g_fonts.body = AddTextFont("segoeui.ttf", 17.0f, true);
+	// UiFont selects body for Chinese text, including after a language switch.
 	g_fonts.medium = AddTextFont("seguisb.ttf", 17.0f);
 	g_fonts.title = AddTextFont("seguisb.ttf", 24.0f);
 	g_fonts.number = AddTextFont("seguisb.ttf", 34.0f);
@@ -263,9 +292,9 @@ bool Toggle(const char *id, bool *v)
 	return changed;
 }
 
-bool Button(const char *id, const char *icon, const char *label, bool primary, float width)
+bool Button(const char *id, const char *icon, const char *label, bool primary, float width, ImFont *font)
 {
-	ImGui::PushFont(g_fonts.medium);
+	ImGui::PushFont(font ? font : UiFont(g_fonts.medium));
 	ImVec2 ts = ImGui::CalcTextSize(label);
 	float iconW = icon ? 20.0f : 0.0f;
 	ImVec2 size(width > 0 ? width : ts.x + iconW + 26, 32);
@@ -299,7 +328,7 @@ bool Button(const char *id, const char *icon, const char *label, bool primary, f
 bool Segmented(const char *id, const char *const *items, int count, int *current)
 {
 	ImGui::PushID(id);
-	ImGui::PushFont(g_fonts.medium);
+	ImGui::PushFont(UiFont(g_fonts.medium));
 	float widths[8], total = 6;
 	for (int i = 0; i < count; i++) total += widths[i] = ImGui::CalcTextSize(items[i]).x + 24;
 	ImVec2 p = Snap(ImGui::GetCursorScreenPos());
@@ -365,7 +394,7 @@ static bool SliderBehavior(const char *id, float *t, float width)
 
 static bool SliderRow(const char *id, float *t, const char *value, float w)
 {
-	ImGui::PushFont(g_fonts.mono);
+	ImGui::PushFont(UiFont(g_fonts.mono));
 	const float vw = 56.0f;
 	ImVec2 p = ImGui::GetCursorScreenPos();
 	bool changed = SliderBehavior(id, t, w - vw);
@@ -465,15 +494,17 @@ void Tooltip(const char *title, const char *text)
 	ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 8.0f);
 	if (ImGui::BeginTooltip()) {
 		if (title) {
-			ImGui::PushFont(g_fonts.medium);
+			ImGui::PushFont(UiFont(g_fonts.medium));
 			ImGui::TextUnformatted(title);
 			ImGui::PopFont();
 		}
+		ImGui::PushFont(UiFont(g_fonts.body));
 		ImGui::PushTextWrapPos(ImGui::GetCursorPosX() + 400);
 		ImGui::PushStyleColor(ImGuiCol_Text, pal::Text2);
 		ImGui::TextUnformatted(text);
 		ImGui::PopStyleColor();
 		ImGui::PopTextWrapPos();
+		ImGui::PopFont();
 		ImGui::EndTooltip();
 	}
 	ImGui::PopStyleVar(2);
@@ -491,6 +522,7 @@ bool SearchBox(const char *id, char *buf, int size, float width, const char *hin
 	            Col(Mix(pal::Line, Alpha(pal::Accent2, 0.65f), focus)), 6.0f);
 	Icon(dl, ImVec2(p.x + 15, p.y + h * 0.5f), ICON_SEARCH, g_fonts.icon14, Mix(pal::Text3, pal::Accent2, focus));
 	ImGui::SetCursorScreenPos(ImVec2(p.x + 28, p.y + (h - ImGui::GetFontSize()) * 0.5f - 3));
+	ImGui::PushFont(UiFont(g_fonts.body));
 	ImGui::PushStyleColor(ImGuiCol_FrameBg, 0);
 	ImGui::PushStyleColor(ImGuiCol_FrameBgHovered, 0);
 	ImGui::PushStyleColor(ImGuiCol_FrameBgActive, 0);
@@ -499,6 +531,7 @@ bool SearchBox(const char *id, char *buf, int size, float width, const char *hin
 	bool changed = ImGui::InputTextWithHint(id, hint, buf, size);
 	ImGui::PopStyleVar();
 	ImGui::PopStyleColor(3);
+	ImGui::PopFont();
 	ImGui::SetCursorScreenPos(p);
 	ImGui::Dummy(ImVec2(width, h));
 	return changed;
@@ -508,14 +541,14 @@ bool MenuItem(const char *icon, const char *label)
 {
 	ImVec2 p = ImGui::GetCursorScreenPos();
 	const float w = 230, h = 30;
-	ImGui::PushID(label);
+	ImGui::PushID(icon ? icon : label);
 	bool pressed = ImGui::InvisibleButton("##mi", ImVec2(w, h));
 	bool hover = ImGui::IsItemHovered();
 	ImGui::PopID();
 	ImDrawList *dl = ImGui::GetWindowDrawList();
 	if (hover) dl->AddRectFilled(p, ImVec2(p.x + w, p.y + h), Col(Alpha(pal::Accent, 0.20f)), 5.0f);
 	if (icon) Icon(dl, ImVec2(p.x + 15, p.y + h * 0.5f), icon, g_fonts.icon14, hover ? pal::Accent2 : pal::Text3);
-	ImGui::PushFont(g_fonts.body);
+	ImGui::PushFont(UiFont(g_fonts.body));
 	dl->AddText(Snap(ImVec2(p.x + 32, p.y + (h - ImGui::GetFontSize()) * 0.5f - 1)), Col(hover ? pal::Text : pal::Text2), label);
 	ImGui::PopFont();
 	if (pressed) ImGui::CloseCurrentPopup();
@@ -538,7 +571,7 @@ void DrawToast(ImVec2 a, ImVec2 b)
 	float in = EaseOut(age / 0.16f), out = age > 1.5f ? 1 - (age - 1.5f) / 0.3f : 1;
 	float k = in * out;
 	ImDrawList *dl = ImGui::GetForegroundDrawList();
-	ImGui::PushFont(g_fonts.medium);
+	ImGui::PushFont(UiFont(g_fonts.medium));
 	ImVec2 ts = ImGui::CalcTextSize(g_toast);
 	ImVec2 size(ts.x + 48, 36);
 	ImVec2 p = Snap(ImVec2((a.x + b.x - size.x) * 0.5f, b.y - 54));

@@ -20,20 +20,25 @@
 #include "../fixes/registry.h"
 #include "../profilers/profilers.h"
 #include "icons.h"
+#include "fix_catalog.h"
+#include "language.h"
 #include "theme.h"
 #include "ui.h"
 
 enum Tab { TAB_FIXES, TAB_LUA, TAB_PROF, TAB_LAG, TAB_LOGS, TAB_SETTINGS, TAB_COUNT };
 
-struct TabInfo { const char *icon, *nameRu, *nameEn, *subRu, *subEn; };
-static const TabInfo kTabs[TAB_COUNT] = {
-	{ ICON_ZAP, "Оптимизации", "Optimizations", "Что ускоряет каждый фикс. Нажми на строку — подробности и настройки.", "What each fix speeds up. Click a row for details and settings." },
-	{ ICON_BRACES, "Lua профайлер", "Lua profiler", "Сколько кадра забирает каждый скрипт MoonLoader, его функции и строки кода. ПКМ — копировать.", "Frame time spent by each MoonLoader script, its functions, and lines of code. Right-click to copy." },
-	{ ICON_ACTIVITY, "Профайлер", "Profiler", "Весь кадр одним деревом: GTA и SA-MP по реальным вызовам. Раскрой строку — что внутри; «своё» — без размеченных вызовов. ПКМ — копировать.", "Whole frame in one tree: GTA and SA-MP by real calls. Expand a row to see inside; 'self' excludes child timers. Right-click to copy." },
-	{ ICON_TIMER, "Фризы и инпутлаг", "Stutters & input lag", "Каждый долгий кадр и на что он ушёл, 1% и 0.1% low, задержка от клавиш и мыши до кадра. Считает, пока меню закрыто.", "Every long frame and its cause, 1% and 0.1% lows, key/mouse-to-frame latency. Records while the menu is closed." },
-	{ ICON_SCROLL_TEXT, "Журнал", "Log", "Что плагин сделал при запуске игры и что не встало.", "What the plugin patched on startup and anything that was skipped." },
-	{ ICON_SETTINGS, "Настройки", "Settings", "Язык, клавиша меню, фон и счётчик FPS.", "Language, menu key, background, and FPS counter." },
-};
+struct TabInfo { const char *icon, *name, *subtitle; };
+static TabInfo TabText(int tab)
+{
+	switch (tab) {
+	case TAB_FIXES: return { ICON_ZAP, UiText("Оптимизации", "\xD3\xC5\xBB\xAF\xCF\xEE", "Optimizations"), UiText("Что ускоряет каждый фикс. Нажми на строку — подробности и настройки.", "\xB2\xE9\xBF\xB4\xC3\xBF\xCF\xEE\xD3\xC5\xBB\xAF\xB5\xC4\xD7\xF7\xD3\xC3\xA1\xA3\xB5\xE3\xBB\xF7\xCC\xF5\xC4\xBF\xBF\xC9\xB2\xE9\xBF\xB4\xCF\xEA\xC7\xE9\xBA\xCD\xC9\xE8\xD6\xC3\xA1\xA3", "See what each fix speeds up. Select a row for details and settings.") };
+	case TAB_LUA: return { ICON_BRACES, UiText("Lua профайлер", "Lua \xD0\xD4\xC4\xDC\xB7\xD6\xCE\xF6", "Lua profiler"), UiText("Сколько кадра забирает каждый скрипт MoonLoader, его функции и строки кода. ПКМ — копировать.", "\xB2\xE9\xBF\xB4\xC3\xBF\xB8\xF6 MoonLoader \xBD\xC5\xB1\xBE\xA1\xA2\xBA\xAF\xCA\xFD\xBA\xCD\xB4\xFA\xC2\xEB\xD0\xD0\xD5\xBC\xD3\xC3\xB5\xC4\xD6\xA1\xCA\xB1\xBC\xE4\xA1\xA3\xD3\xD2\xBC\xFC\xBF\xC9\xB8\xB4\xD6\xC6\xA1\xA3", "Frame time used by each MoonLoader script, its functions and code lines. Right-click to copy.") };
+	case TAB_PROF: return { ICON_ACTIVITY, UiText("Профайлер", "\xD0\xD4\xC4\xDC\xB7\xD6\xCE\xF6\xC6\xF7", "Profiler"), UiText("Весь кадр одним деревом: GTA и SA-MP по реальным вызовам. Раскрой строку — что внутри; «своё» — без размеченных вызовов. ПКМ — копировать.", "\xD2\xD4\xB5\xF7\xD3\xC3\xCA\xF7\xB2\xE9\xBF\xB4 GTA \xBA\xCD SA-MP \xB5\xC4\xCD\xEA\xD5\xFB\xD6\xA1\xBA\xC4\xCA\xB1\xA1\xA3\xD5\xB9\xBF\xAA\xCC\xF5\xC4\xBF\xB2\xE9\xBF\xB4\xC4\xDA\xC8\xDD\xA3\xBB\xA1\xB0\xD7\xD4\xC9\xED\xA1\xB1\xB2\xBB\xBA\xAC\xD2\xD1\xB1\xEA\xBC\xC7\xB5\xF7\xD3\xC3\xA1\xA3\xD3\xD2\xBC\xFC\xBF\xC9\xB8\xB4\xD6\xC6\xA1\xA3", "The whole frame as a call tree: GTA and SA-MP by actual calls. Expand a row to inspect it; “self” excludes instrumented calls. Right-click to copy.") };
+	case TAB_LAG: return { ICON_TIMER, UiText("Фризы и инпутлаг", "\xBF\xA8\xB6\xD9\xD3\xEB\xCA\xE4\xC8\xEB\xD1\xD3\xB3\xD9", "Stutters & input lag"), UiText("Каждый долгий кадр и на что он ушёл, 1% и 0.1% low, задержка от клавиш и мыши до кадра. Считает, пока меню закрыто.", "\xB2\xE9\xBF\xB4\xC2\xFD\xD6\xA1\xB3\xC9\xD2\xF2\xA1\xA2""1%/0.1% low\xA3\xAC\xD2\xD4\xBC\xB0\xB0\xB4\xBC\xFC\xBA\xCD\xCA\xF3\xB1\xEA\xB5\xBD\xBB\xAD\xC3\xE6\xB5\xC4\xD1\xD3\xB3\xD9\xA1\xA3\xB2\xCB\xB5\xA5\xB9\xD8\xB1\xD5\xCA\xB1\xD2\xB2\xBB\xE1\xB2\xC9\xBC\xAF\xA1\xA3", "See every slow frame and its causes, 1% and 0.1% lows, and keyboard/mouse-to-frame latency. Sampling continues while the menu is closed.") };
+	case TAB_LOGS: return { ICON_SCROLL_TEXT, UiText("Журнал", "\xC8\xD5\xD6\xBE", "Log"), UiText("Что плагин сделал при запуске игры и что не встало.", "\xB2\xE9\xBF\xB4\xB2\xE5\xBC\xFE\xC6\xF4\xB6\xAF\xCA\xB1\xD6\xB4\xD0\xD0\xB5\xC4\xB2\xD9\xD7\xF7\xBC\xB0\xCE\xB4\xC4\xDC\xC6\xF4\xD3\xC3\xB5\xC4\xCF\xEE\xC4\xBF\xA1\xA3", "What the plugin did at game startup and what failed to load.") };
+	default: return { ICON_SETTINGS, UiText("Настройки", "\xC9\xE8\xD6\xC3", "Settings"), UiText("Клавиша меню, фон и счётчик FPS.", "\xB2\xCB\xB5\xA5\xB0\xB4\xBC\xFC\xA1\xA2\xB1\xB3\xBE\xB0\xBA\xCD FPS \xBC\xC6\xCA\xFD\xC6\xF7\xA1\xA3", "Menu key, background and FPS counter.") };
+	}
+}
 
 struct FixIcon { const char *section, *icon; };
 static const FixIcon kFixIcons[] = {
@@ -98,11 +103,11 @@ static float PageIn(float delay = 0.0f, float duration = 0.18f)
 
 static void PageHeader(const TabInfo &t)
 {
-	ImGui::PushFont(g_fonts.title);
-	TextColored(pal::Text, Tr(t.nameRu, t.nameEn));
+	ImGui::PushFont(UiFont(g_fonts.title));
+	TextColored(pal::Text, t.name);
 	ImGui::PopFont();
 	ImGui::SetCursorPosY(ImGui::GetCursorPosY() - 4);
-	TextWrapped(pal::Text2, Tr(t.subRu, t.subEn), ImGui::GetContentRegionAvail().x);
+	TextWrapped(pal::Text2, t.subtitle, ImGui::GetContentRegionAvail().x);
 	ImGui::Dummy(ImVec2(0, 4));
 }
 
@@ -168,10 +173,13 @@ static std::string Fit(const char *text, float width)
 
 static std::wstring LowerW(const char *utf8)
 {
-	wchar_t w[512];
-	int n = MultiByteToWideChar(CP_UTF8, 0, utf8, -1, w, 512);
+	if (!utf8 || !utf8[0]) return L"";
+	int n = MultiByteToWideChar(CP_UTF8, 0, utf8, -1, nullptr, 0);
 	if (n <= 0) return L"";
-	CharLowerBuffW(w, n);
+	std::wstring w(n, L'\0');
+	if (MultiByteToWideChar(CP_UTF8, 0, utf8, -1, w.data(), n) <= 0) return L"";
+	if (!w.empty() && w.back() == L'\0') w.pop_back();
+	if (!w.empty()) CharLowerBuffW(w.data(), (DWORD)w.size());
 	return w;
 }
 
@@ -219,7 +227,7 @@ static void DrawMonitor(ImVec2 a, ImVec2 b)
 	ImGui::PopFont();
 	ImGui::SameLine(0, 6);
 	ImGui::SetCursorPosY(ImGui::GetCursorPosY() + 14);
-	ImGui::PushFont(g_fonts.tiny);
+	ImGui::PushFont(UiFont(g_fonts.tiny));
 	TextColored(pal::Text3, "FPS");
 	ImGui::PopFont();
 
@@ -229,10 +237,10 @@ static void DrawMonitor(ImVec2 a, ImVec2 b)
 
 	auto row = [&](const char *k, const char *v, ImU32 vcol = pal::Text) {
 		float y = ImGui::GetCursorPosY(), x = ImGui::GetCursorPosX();
-		ImGui::PushFont(g_fonts.tiny);
+		ImGui::PushFont(UiFont(g_fonts.tiny));
 		TextColored(pal::Text3, k);
 		ImGui::PopFont();
-		ImGui::PushFont(g_fonts.mono);
+		ImGui::PushFont(UiFont(g_fonts.mono));
 		ImGui::SetCursorPos(ImVec2(x + w - ImGui::CalcTextSize(v).x, y + 1));
 		TextColored(vcol, v);
 		ImGui::PopFont();
@@ -241,7 +249,7 @@ static void DrawMonitor(ImVec2 a, ImVec2 b)
 
 	char buf[32];
 	sprintf_s(buf, "%.2f ms", g_frames.dispMs);
-	row(Tr("Кадр", "Frame"), buf, pal::Text2);
+	row(UiText("Кадр", "\xD6\xA1\xBA\xC4\xCA\xB1", "Frame"), buf, pal::Text2);
 	sprintf_s(buf, "%.0f", g_frames.dispLow1);
 	row("1% low", buf, pal::Text2);
 	sprintf_s(buf, "%.0f%%", g_frames.sysCpu);
@@ -250,7 +258,7 @@ static void DrawMonitor(ImVec2 a, ImVec2 b)
 	else strcpy_s(buf, "—");
 	row("GPU", buf, g_frames.gpu >= 90.0f ? pal::Warn : pal::Text);
 	sprintf_s(buf, "%.0f%%", g_frames.cpu);
-	row(Tr("Поток игры", "Game thread"), buf, g_frames.cpu >= 92.0f ? pal::Warn : pal::Text2);
+	row(UiText("Поток игры", "\xD3\xCE\xCF\xB7\xD6\xF7\xCF\xDF\xB3\xCC", "Game thread"), buf, g_frames.cpu >= 92.0f ? pal::Warn : pal::Text2);
 
 	ImGui::Dummy(ImVec2(0, 2));
 	Bar(ImVec2(w, 3), g_frames.cpu / 100.0f);
@@ -275,10 +283,10 @@ static void DrawSidebar(ImVec2 a, ImVec2 b)
 	dl->AddRect(ImVec2(la.x + 0.5f, la.y + 0.5f), ImVec2(lb.x - 0.5f, lb.y - 0.5f), Col(Alpha(pal::Accent2, 0.36f)), 6.0f);
 	Icon(dl, ImVec2(la.x + 14, la.y + 14), ICON_ZAP, g_fonts.icon14, pal::Accent);
 
-	ImGui::PushFont(g_fonts.medium);
+	ImGui::PushFont(UiFont(g_fonts.medium));
 	dl->AddText(Snap(ImVec2(lb.x + 10, a.y + 13)), Col(pal::Text), PLUGIN_NAME);
 	ImGui::PopFont();
-	ImGui::PushFont(g_fonts.tiny);
+	ImGui::PushFont(UiFont(g_fonts.tiny));
 	dl->AddText(Snap(ImVec2(lb.x + 10, a.y + 31)), Col(pal::Text3), "v" PLUGIN_VERSION);
 	ImGui::PopFont();
 
@@ -303,16 +311,17 @@ static void DrawSidebar(ImVec2 a, ImVec2 b)
 		float active = Anim(ImGui::GetItemID() + 1, g_tab == i ? 1.0f : 0.0f, 16.0f);
 		ImGui::PopID();
 		if (hover > 0.01f) dl->AddRectFilled(p, ImVec2(b.x - 10, p.y + itemH), Col(Alpha(IM_COL32(218, 198, 168, 12), hover)), 6.0f);
-		Icon(dl, ImVec2(p.x + 20, p.y + itemH * 0.5f), kTabs[i].icon, g_fonts.icon14, Mix(pal::Text3, pal::Accent2, ImMax(active, hover * 0.5f)));
-		ImGui::PushFont(g_fonts.medium);
-		dl->AddText(Snap(ImVec2(p.x + 38, p.y + (itemH - ImGui::GetFontSize()) * 0.5f - 1)), Col(Mix(Mix(pal::Text3, pal::Text2, hover), pal::Text, active)),
-		            Tr(kTabs[i].nameRu, kTabs[i].nameEn));
+			TabInfo tab = TabText(i);
+			Icon(dl, ImVec2(p.x + 20, p.y + itemH * 0.5f), tab.icon, g_fonts.icon14, Mix(pal::Text3, pal::Accent2, ImMax(active, hover * 0.5f)));
+			ImGui::PushFont(UiFont(g_fonts.medium));
+			dl->AddText(Snap(ImVec2(p.x + 38, p.y + (itemH - ImGui::GetFontSize()) * 0.5f - 1)), Col(Mix(Mix(pal::Text3, pal::Text2, hover), pal::Text, active)),
+			            tab.name);
 		ImGui::PopFont();
 	}
 
 	DrawMonitor(ImVec2(a.x, b.y - 266), ImVec2(b.x, b.y - 34));
 	dl->AddLine(ImVec2(a.x, b.y - 34.5f), ImVec2(b.x, b.y - 34.5f), Col(pal::Line));
-	ImGui::PushFont(g_fonts.tiny);
+	ImGui::PushFont(UiFont(g_fonts.tiny));
 	float cw = ImGui::CalcTextSize("by " PLUGIN_AUTHOR).x;
 	AuthorLink(ImVec2(a.x + (b.x - a.x - cw) * 0.5f, b.y - 24), "by ", pal::Text3);
 	ImGui::PopFont();
@@ -329,12 +338,30 @@ struct Status { const char *text; ImU32 col; bool pulse; };
 
 static Status StatusOf(const Fix *f)
 {
-	if (f->enabled && f->active) return { Tr("работает", "active"), pal::Ok, true };
-	if (f->enabled && f->gta && !IsGta10US()) return { Tr("нужна GTA SA 1.0 US", "needs GTA SA 1.0 US"), pal::Warn, false };
+	if (f->enabled && f->active) return { UiText("работает", "\xD4\xCB\xD0\xD0\xD6\xD0", "active"), pal::Ok, true };
+	if (f->enabled && f->gta && !IsGta10US()) return { UiText("нужна GTA SA 1.0 US", "\xD0\xE8\xD2\xAA GTA SA 1.0 US", "GTA SA 1.0 US required"), pal::Warn, false };
 	if (f->enabled && !f->gta && f->atSamp && !g_samp)
-		return { GetModuleHandleA("samp.dll") && g_sampVersion < 0 ? Tr("версия SA-MP не та", "unsupported SA-MP") : Tr("ждёт SA-MP", "waiting for SA-MP"), pal::Text3, false };
-	if (f->enabled) return { Tr("не встал", "not applied"), pal::Warn, false };
-	return { Tr("выключен", "disabled"), pal::Text3, false };
+		return { GetModuleHandleA("samp.dll") && g_sampVersion < 0 ? UiText("версия SA-MP не та", "SA-MP \xB0\xE6\xB1\xBE\xB2\xBB\xC6\xA5\xC5\xE4", "wrong SA-MP version") : UiText("ждёт SA-MP", "\xB5\xC8\xB4\xFD SA-MP", "waiting for SA-MP"), pal::Text3, false };
+	if (f->enabled) return { UiText("не встал", "\xCE\xB4\xC6\xF4\xD3\xC3", "not applied"), pal::Warn, false };
+	return { UiText("выключен", "\xD2\xD1\xB9\xD8\xB1\xD5", "off"), pal::Text3, false };
+}
+
+static const char *UiParamLabel(const Fix *f, const Param &p)
+{
+	return g_ui.language == 2 ? ParamLabel(f, p) : GetParamLabel(f->section, p.key, p.label);
+}
+
+static FixText UiFixText(const Fix *f)
+{
+	if (g_ui.language == 2)
+		return { FixTitle(f), FixGain(f), FixSummary(f), FixDetails(f) };
+	FixText text = GetFixText(f->section);
+	return {
+		text.title[0] ? text.title : f->title,
+		text.gain[0] ? text.gain : f->gain,
+		text.summary[0] ? text.summary : f->summary,
+		text.details[0] ? text.details : f->details,
+	};
 }
 
 static void DrawParams(Fix *f, float w)
@@ -342,11 +369,11 @@ static void DrawParams(Fix *f, float w)
 	for (int k = 0; k < f->paramCount; k++) {
 		const Param &pr = f->params[k];
 		ImGui::PushID(k);
-		ImGui::PushFont(g_fonts.tiny);
-		TextColored(pal::Text2, ParamLabel(f, pr));
+		ImGui::PushFont(UiFont(g_fonts.tiny));
+		TextColored(pal::Text2, UiParamLabel(f, pr));
 		if (!pr.live) {
 			ImGui::SameLine(0, 6);
-			TextColored(pal::Warn, Tr("· после перезапуска", "· after restart"));
+			TextColored(pal::Warn, UiText("· после перезапуска", "\xA1\xA4 \xD6\xD8\xC6\xF4\xBA\xF3\xC9\xFA\xD0\xA7", "· after restart"));
 		}
 		ImGui::PopFont();
 		ImGui::SetCursorPosY(ImGui::GetCursorPosY() - 2);
@@ -366,6 +393,11 @@ static void DrawParams(Fix *f, float w)
 
 static void DrawFixRow(Fix *f, int index, float w)
 {
+	FixText text = UiFixText(f);
+	const char *gain = text.gain;
+	const char *title = text.title;
+	const char *summary = text.summary;
+	const char *details = text.details;
 	const float headH = 70.0f;
 	ImDrawList *dl = ImGui::GetWindowDrawList();
 	ImGui::PushID(index);
@@ -392,18 +424,18 @@ static void DrawFixRow(Fix *f, int index, float w)
 	const float chevX = toggleX - 24;
 	const float cy = p.y + headH * 0.5f;
 	Status stt = StatusOf(f);
-	ImGui::PushFont(g_fonts.tiny);
+	ImGui::PushFont(UiFont(g_fonts.tiny));
 	bool pending = desired != f->enabled;
-	const char *statusText = pending ? (desired ? Tr("включится после перезапуска", "enables on restart") : Tr("выключится после перезапуска", "disables on restart")) : stt.text;
+	const char *statusText = pending ? (desired ? UiText("включится после перезапуска", "\xD6\xD8\xC6\xF4\xBA\xF3\xC6\xF4\xD3\xC3", "will enable after restart")
+	                                         : UiText("выключится после перезапуска", "\xD6\xD8\xC6\xF4\xBA\xF3\xB9\xD8\xB1\xD5", "will disable after restart")) : stt.text;
 	ImU32 statusCol = pending ? pal::Warn : stt.col;
 	float sw = ImGui::CalcTextSize(statusText).x;
 	float sx = chevX - 14 - sw;
 	Dot(ImVec2(sx - 10, cy), statusCol, false);
 	dl->AddText(Snap(ImVec2(sx, cy - ImGui::GetFontSize() * 0.5f - 1)), Col(statusCol), statusText);
 	float gx = sx - 26;
-	const char *gain = FixGain(f);
 	if (gain[0] && w > 640) {
-		ImGui::PushFont(g_fonts.mono);
+		ImGui::PushFont(UiFont(g_fonts.mono));
 		ImVec2 gs = ImGui::CalcTextSize(gain);
 		ImVec2 ga = Snap(ImVec2(gx - gs.x - 16, cy - 11)), gb(gx, (float)(int)(cy + 11));
 		dl->AddRectFilled(ga, gb, Col(Alpha(pal::Accent2, 0.11f)), 5.0f);
@@ -417,12 +449,10 @@ static void DrawFixRow(Fix *f, int index, float w)
 
 	// title + one line of summary
 	float textX = p.x + 60, textW = gx - 16 - textX;
-	const char *title = FixTitle(f);
-	const char *summary = FixSummary(f);
-	ImGui::PushFont(g_fonts.medium);
+	ImGui::PushFont(UiFont(g_fonts.medium));
 	dl->AddText(Snap(ImVec2(textX, p.y + 13)), Col(pal::Text), Fit(title, textW).c_str());
 	ImGui::PopFont();
-	ImGui::PushFont(g_fonts.tiny);
+	ImGui::PushFont(UiFont(g_fonts.tiny));
 	dl->AddText(Snap(ImVec2(textX, p.y + 38)), Col(pal::Text3), Fit(summary, textW).c_str());
 	ImGui::PopFont();
 
@@ -446,17 +476,17 @@ static void DrawFixRow(Fix *f, int index, float w)
 		float bw = w - 66 - 24;
 		ImGui::SetCursorScreenPos(ImVec2(c.x + 66, c.y + 14));
 		ImGui::BeginGroup();
-		TextWrapped(pal::Text, FixSummary(f), bw);
+		TextWrapped(pal::Text, summary, bw);
 		ImGui::Dummy(ImVec2(0, 2));
-		TextWrapped(pal::Text2, FixDetails(f), bw);
+		TextWrapped(pal::Text2, details, bw);
 		if (f->paramCount) {
 			ImGui::Dummy(ImVec2(0, 6));
 			DrawParams(f, ImMin(bw, 440.0f));
 		}
 		ImGui::Dummy(ImVec2(0, 2));
-		ImGui::PushFont(g_fonts.tiny);
+		ImGui::PushFont(UiFont(g_fonts.tiny));
 		char where[96];
-		sprintf_s(where, Tr("[%s] в " PLUGIN_NAME ".ini", "[%s] in " PLUGIN_NAME ".ini"), f->section);
+		sprintf_s(where, UiText("[%s] в " PLUGIN_NAME ".ini", "[%s] \xCE\xBB\xD3\xDA " PLUGIN_NAME ".ini", "[%s] in " PLUGIN_NAME ".ini"), f->section);
 		TextColored(pal::Text3, where);
 		ImGui::PopFont();
 		ImGui::EndGroup();
@@ -477,27 +507,26 @@ static void DrawFixesPage()
 		for (int i = 0; i < n && i < 128; i++) g_desired[i] = g_ini.Bool(fixes[i]->section, "enabled", fixes[i]->defaultOn);
 	}
 
-	PageHeader(kTabs[TAB_FIXES]);
+	PageHeader(TabText(TAB_FIXES));
 	float full = ImGui::GetContentRegionAvail().x;
 	float x0 = ImGui::GetCursorPosX(), y0 = ImGui::GetCursorPosY();
-	static const char *const groupsRu[] = { "Все", "GTA", "SA-MP", "Другие моды" };
-	static const char *const groupsEn[] = { "All", "GTA", "SA-MP", "Other mods" };
-	if (Segmented("groups", g_english ? groupsEn : groupsRu, 4, &g_group)) g_tabSince = ImGui::GetTime();
+	const char *groups[] = { UiText("Все", "\xC8\xAB\xB2\xBF", "All"), "GTA", "SA-MP", UiText("Другие моды", "\xC6\xE4\xCB\xFB\xC4\xA3\xD7\xE9", "Other mods") };
+	if (Segmented("groups", groups, 4, &g_group)) g_tabSince = ImGui::GetTime();
 	ImGui::SetCursorPos(ImVec2(x0 + full - 260 - 10, y0));
-	SearchBox("##fixsearch", g_fixSearch, sizeof(g_fixSearch), 260, Tr("Поиск фикса", "Search fixes"));
+	SearchBox("##fixsearch", g_fixSearch, sizeof(g_fixSearch), 260, UiText("Поиск фикса", "\xCB\xD1\xCB\xF7\xD3\xC5\xBB\xAF\xCF\xEE", "Search fixes"));
 	ImGui::SetCursorPos(ImVec2(x0, y0 + 34 + 10));
 
 	int total = 0, working = 0;
 	for (int i = 0; i < n; i++)
 		if (!IsProfiler(fixes[i])) total++, working += fixes[i]->enabled && fixes[i]->active;
-	ImGui::PushFont(g_fonts.tiny);
+	ImGui::PushFont(UiFont(g_fonts.tiny));
 	ImVec2 dp = ImGui::GetCursorScreenPos();
 	Dot(ImVec2(dp.x + 5, dp.y + ImGui::GetFontSize() * 0.5f + 1), working ? pal::Ok : pal::Warn, false);
 	ImGui::SetCursorScreenPos(ImVec2(dp.x + 15, dp.y));
 	char buf[160];
-	sprintf_s(buf, Tr("Работают %d из %d   ·   GTA SA %s   ·   SA-MP %s", "Active %d of %d   ·   GTA SA %s   ·   SA-MP %s"),
-	          working, total, IsGta10US() ? "1.0 US" : Tr("не 1.0 US", "not 1.0 US"),
-	          SampVersionName() ? SampVersionName() : Tr("не загружен", "not loaded"));
+	sprintf_s(buf, UiText("Работают %d из %d   ·   GTA SA %s   ·   SA-MP %s", "%d/%d \xCF\xEE\xD4\xCB\xD0\xD0   \xA1\xA4   GTA SA %s   \xA1\xA4   SA-MP %s", "%d of %d active   ·   GTA SA %s   ·   SA-MP %s"),
+	          working, total, IsGta10US() ? "1.0 US" : UiText("не 1.0 US", "\xB7\xC7 1.0 US", "not 1.0 US"),
+	          SampVersionName() ? SampVersionName() : UiText("не загружен", "\xCE\xB4\xBC\xD3\xD4\xD8", "not loaded"));
 	TextColored(pal::Text2, buf);
 	ImGui::PopFont();
 	ImGui::Dummy(ImVec2(0, 2));
@@ -514,19 +543,26 @@ static void DrawFixesPage()
 	for (int i : order) {
 		Fix *f = fixes[i];
 		if (IsProfiler(f) || (g_group != GROUP_ALL && GroupOf(f) != g_group)) continue;
-		if (!Matches(FixTitle(f), needle) && !Matches(FixSummary(f), needle) && !Matches(f->section, needle)) continue;
+		FixText text = UiFixText(f);
+		bool match = Matches(text.title, needle) || Matches(text.gain, needle) || Matches(text.summary, needle) ||
+		             Matches(text.details, needle) || Matches(f->section, needle);
+		for (int p = 0; !match && p < f->paramCount; p++) {
+			const Param &pr = f->params[p];
+			match = Matches(UiParamLabel(f, pr), needle) || Matches(pr.key, needle);
+		}
+		if (!match) continue;
 		DrawFixRow(f, i, w);
 		shown++;
 	}
-	if (!shown) TextColored(pal::Text3, Tr("Ничего не найдено.", "Nothing found."));
+	if (!shown) TextColored(pal::Text3, UiText("Ничего не найдено.", "\xC3\xBB\xD3\xD0\xD5\xD2\xB5\xBD\xC6\xA5\xC5\xE4\xCF\xEE\xA1\xA3", "No matches found."));
 
 	const std::string &stats = FixesStats();
 	if (!stats.empty()) {
 		ImGui::Dummy(ImVec2(0, 6));
-		ImGui::PushFont(g_fonts.medium);
-		TextColored(pal::Text, Tr("Статистика за последнюю секунду", "Last second stats"));
+		ImGui::PushFont(UiFont(g_fonts.medium));
+		TextColored(pal::Text, UiText("Статистика за последнюю секунду", "\xD7\xEE\xBD\xFC\xD2\xBB\xC3\xEB\xCD\xB3\xBC\xC6", "Statistics for the last second"));
 		ImGui::PopFont();
-		ImGui::PushFont(g_fonts.mono);
+		ImGui::PushFont(UiFont(g_fonts.mono));
 		TextWrapped(pal::Text2, stats.c_str(), w);
 		ImGui::PopFont();
 	}
@@ -582,6 +618,16 @@ static void SortTree(TreeView &v)
 static const char *CleanLabel(const char *label)
 {
 	return !strncmp(label, "GTA ", 4) ? label + 4 : label;
+}
+
+static const char *SpikeCauseUiLabel(int cause)
+{
+	switch (cause) {
+	case SPIKE_CPU: return UiText("код игры и плагинов", "\xD3\xCE\xCF\xB7\xBA\xCD\xB2\xE5\xBC\xFE\xB4\xFA\xC2\xEB", "Game and plugin code");
+	case SPIKE_WAIT: return UiText("ожидание: диск, блокировка, Sleep", "\xB5\xC8\xB4\xFD\xA3\xBA\xB4\xC5\xC5\xCC\xA1\xA2\xCB\xF8\xA1\xA2Sleep", "Wait: disk, lock, Sleep");
+	case SPIKE_PRESENT: return UiText("Present: видеокарта, DXVK, лимит FPS", "Present\xA3\xBA\xCF\xD4\xBF\xA8\xA1\xA2""DXVK\xA1\xA2""FPS \xCF\xDE\xD6\xC6", "Present: GPU, DXVK, FPS limit");
+	default: return "";
+	}
 }
 
 // The whole frame: every timed function, GTA or samp.dll, under the one it really ran inside; samp.dll rows are tagged.
@@ -664,11 +710,11 @@ static void CopyBranch(const TreeView &v, int i, int depth, std::string &out)
 
 static void CopyAll(const TreeView &v)
 {
-	std::string out = v.lua ? Tr("Скрипт / функция\t% кадра\tмс/с\tвызовов/с\n", "Script / function\t% frame\tms/s\tcalls/s\n")
-	                        : Tr("Функция\t% кадра\tсвоё\tвызовов/с\tадрес\n", "Function\t% frame\tself\tcalls/s\taddress\n");
+	std::string out = v.lua ? UiText("Скрипт / функция\t% кадра\tмс/с\tвызовов/с\n", "\xBD\xC5\xB1\xBE / \xBA\xAF\xCA\xFD\t\xD6\xA1\xD5\xBC\xB1\xC8\t\xBA\xC1\xC3\xEB/\xC3\xEB\t\xB5\xF7\xD3\xC3/\xC3\xEB\n", "Script / function\tFrame %\tms/s\tcalls/s\n")
+	                       : UiText("Функция\t% кадра\tсвоё\tвызовов/с\tадрес\n", "\xBA\xAF\xCA\xFD\t\xD6\xA1\xD5\xBC\xB1\xC8\t\xD7\xD4\xC9\xED\t\xB5\xF7\xD3\xC3/\xC3\xEB\t\xB5\xD8\xD6\xB7\n", "Function\tFrame %\tSelf\tCalls/s\tAddress\n");
 	for (int r : v.roots) CopyBranch(v, r, 0, out);
 	ImGui::SetClipboardText(out.c_str());
-	ShowToast(Tr("Таблица скопирована", "Table copied"));
+	ShowToast(UiText("Таблица скопирована", "\xB1\xED\xB8\xF1\xD2\xD1\xB8\xB4\xD6\xC6", "Table copied"));
 }
 
 static void PctCell(float x, float y, float w, float h, double pct, double maxPct)
@@ -701,7 +747,7 @@ static void HeaderRow(int columns)
 	for (int c = 0; c < columns; c++) {
 		ImGui::TableSetColumnIndex(c);
 		ImVec2 hp = ImGui::GetCursorScreenPos();
-		ImGui::PushFont(g_fonts.tiny);
+		ImGui::PushFont(UiFont(g_fonts.tiny));
 		ImGui::GetWindowDrawList()->AddText(Snap(ImVec2(hp.x, hp.y + 9)), Col(pal::Text3), ImGui::TableGetColumnName(c));
 		ImGui::PopFont();
 	}
@@ -747,7 +793,7 @@ static void DrawTreeRows(TreeView &v, int i, int depth, double maxPct, const std
 	float lx = x + 22;
 	if (!v.lua && n.gta != v.gtaTab) { // a samp.dll function
 		const char *tag = n.gta ? "GTA" : "SA-MP";
-		ImGui::PushFont(g_fonts.tiny);
+		ImGui::PushFont(UiFont(g_fonts.tiny));
 		ImVec2 ts = ImGui::CalcTextSize(tag);
 		ImVec2 ta = Snap(ImVec2(lx, y + rowH * 0.5f - 10)), tb(ta.x + ts.x + 12, ta.y + 20);
 		ImU32 tc = n.gta ? pal::Accent2 : pal::Accent;
@@ -756,7 +802,7 @@ static void DrawTreeRows(TreeView &v, int i, int depth, double maxPct, const std
 		ImGui::PopFont();
 		lx = tb.x + 8;
 	}
-	ImGui::PushFont(depth ? g_fonts.body : g_fonts.medium);
+	ImGui::PushFont(UiFont(depth ? g_fonts.body : g_fonts.medium));
 	std::string label = Fit(n.label.c_str(), c0.x + cellW - lx - 4);
 	dl->AddText(Snap(ImVec2(lx, y + (rowH - ImGui::GetFontSize()) * 0.5f - 1)), Col(depth ? pal::Text2 : pal::Text), label.c_str());
 	ImGui::PopFont();
@@ -765,7 +811,7 @@ static void DrawTreeRows(TreeView &v, int i, int depth, double maxPct, const std
 	auto cell = [&](const char *text, ImU32 col, bool mono) {
 		ImGui::TableNextColumn();
 		ImVec2 p = ImGui::GetCursorScreenPos();
-		ImGui::PushFont(mono ? g_fonts.mono : g_fonts.body);
+		ImGui::PushFont(UiFont(mono ? g_fonts.mono : g_fonts.body));
 		dl->AddText(Snap(ImVec2(p.x, y + (rowH - ImGui::GetFontSize()) * 0.5f - (mono ? 0 : 1))), Col(col), text);
 		ImGui::PopFont();
 	};
@@ -797,7 +843,7 @@ static void DrawTree(TreeView &v, const char *id, float height)
 	Surface(ImGui::GetWindowDrawList(), p, ImVec2(p.x + w, p.y + height), 12, pal::Panel);
 	if (v.nodes.empty()) {
 		ImGui::SetCursorScreenPos(ImVec2(p.x + 20, p.y + 20));
-		TextColored(pal::Text3, Tr("Пока пусто: данные появятся через секунду после запуска.", "Empty for now: data appears a second after starting."));
+		TextColored(pal::Text3, UiText("Пока пусто: данные появятся через секунду после запуска.", "\xD4\xDD\xCE\xDE\xCA\xFD\xBE\xDD\xA3\xBA\xC6\xF4\xB6\xAF\xD2\xBB\xC3\xEB\xBA\xF3\xBB\xE1\xCF\xD4\xCA\xBE\xA1\xA3", "No data yet. It will appear a second after startup."));
 		ImGui::SetCursorScreenPos(ImVec2(p.x, p.y + height));
 		ImGui::Dummy(ImVec2(w, 0));
 		return;
@@ -818,11 +864,11 @@ static void DrawTree(TreeView &v, const char *id, float height)
 	bool wantCtx = false;
 	if (ImGui::BeginTable(id, columns, ImGuiTableFlags_RowBg | ImGuiTableFlags_ScrollY | ImGuiTableFlags_PadOuterX, ImVec2(w, height))) {
 		ImGui::TableSetupScrollFreeze(0, 1);
-		ImGui::TableSetupColumn(v.lua ? Tr("Скрипт / функция", "Script / function") : Tr("Функция", "Function"), ImGuiTableColumnFlags_WidthStretch, 3.0f);
-		ImGui::TableSetupColumn(Tr("% кадра", "% frame"), ImGuiTableColumnFlags_WidthFixed, 200);
-		ImGui::TableSetupColumn(v.lua ? Tr("мс/с", "ms/s") : Tr("своё", "self"), ImGuiTableColumnFlags_WidthFixed, 78);
-		ImGui::TableSetupColumn(Tr("вызовов/с", "calls/s"), ImGuiTableColumnFlags_WidthFixed, 96);
-		if (!v.lua) ImGui::TableSetupColumn(Tr("адрес", "address"), ImGuiTableColumnFlags_WidthFixed, 84);
+		ImGui::TableSetupColumn(v.lua ? UiText("Скрипт / функция", "\xBD\xC5\xB1\xBE / \xBA\xAF\xCA\xFD", "Script / function") : UiText("Функция", "\xBA\xAF\xCA\xFD", "Function"), ImGuiTableColumnFlags_WidthStretch, 3.0f);
+		ImGui::TableSetupColumn(UiText("% кадра", "\xD6\xA1\xD5\xBC\xB1\xC8", "Frame %"), ImGuiTableColumnFlags_WidthFixed, 200);
+		ImGui::TableSetupColumn(v.lua ? UiText("мс/с", "\xBA\xC1\xC3\xEB/\xC3\xEB", "ms/s") : UiText("своё", "\xD7\xD4\xC9\xED", "Self"), ImGuiTableColumnFlags_WidthFixed, 78);
+		ImGui::TableSetupColumn(UiText("вызовов/с", "\xB5\xF7\xD3\xC3/\xC3\xEB", "Calls/s"), ImGuiTableColumnFlags_WidthFixed, 96);
+		if (!v.lua) ImGui::TableSetupColumn(UiText("адрес", "\xB5\xD8\xD6\xB7", "Address"), ImGuiTableColumnFlags_WidthFixed, 84);
 		HeaderRow(columns);
 		for (int r : v.roots) DrawTreeRows(v, r, 0, maxPct, keep.empty() ? nullptr : &keep, !needle.empty(), wantCtx);
 		ImGui::EndTable();
@@ -836,34 +882,34 @@ static void DrawTree(TreeView &v, const char *id, float height)
 	if (ImGui::BeginPopup("##treectx")) {
 		if (v.ctx >= 0 && v.ctx < (int)v.nodes.size()) {
 			const TreeNode &n = v.nodes[v.ctx];
-			ImGui::PushFont(g_fonts.tiny);
+			ImGui::PushFont(UiFont(g_fonts.tiny));
 			ImGui::SetCursorPosX(ImGui::GetCursorPosX() + 10);
 			TextColored(pal::Text3, Fit(n.label.c_str(), 210).c_str());
 			ImGui::PopFont();
 			ImGui::Dummy(ImVec2(0, 2));
 			std::string out;
-			if (MenuItem(ICON_COPY, Tr("Копировать строку", "Copy row"))) {
+			if (MenuItem(ICON_COPY, UiText("Копировать строку", "\xB8\xB4\xD6\xC6\xB4\xCB\xD0\xD0", "Copy row"))) {
 				NodeLine(v, v.ctx, 0, out);
 				ImGui::SetClipboardText(out.c_str());
-				ShowToast(Tr("Строка скопирована", "Row copied"));
+				ShowToast(UiText("Строка скопирована", "\xD2\xD1\xB8\xB4\xD6\xC6\xB4\xCB\xD0\xD0", "Row copied"));
 			}
-			if (MenuItem(ICON_TYPE, Tr("Копировать название", "Copy name"))) {
+			if (MenuItem(ICON_TYPE, UiText("Копировать название", "\xB8\xB4\xD6\xC6\xC3\xFB\xB3\xC6", "Copy name"))) {
 				ImGui::SetClipboardText(n.label.c_str());
-				ShowToast(Tr("Название скопировано", "Name copied"));
+				ShowToast(UiText("Название скопировано", "\xC3\xFB\xB3\xC6\xD2\xD1\xB8\xB4\xD6\xC6", "Name copied"));
 			}
-			if (!v.lua && MenuItem(ICON_HASH, Tr("Копировать адрес", "Copy address"))) {
+			if (!v.lua && MenuItem(ICON_HASH, UiText("Копировать адрес", "\xB8\xB4\xD6\xC6\xB5\xD8\xD6\xB7", "Copy address"))) {
 				char a[32];
 				sprintf_s(a, n.gta ? "0x%06lX" : "samp.dll+0x%05lX", n.addr);
 				ImGui::SetClipboardText(a);
-				ShowToast(Tr("Адрес скопирован", "Address copied"));
+				ShowToast(UiText("Адрес скопирован", "\xB5\xD8\xD6\xB7\xD2\xD1\xB8\xB4\xD6\xC6", "Address copied"));
 			}
-			if (!n.kids.empty() && MenuItem(ICON_LIST_TREE, Tr("Копировать с вложенными", "Copy with children"))) {
+			if (!n.kids.empty() && MenuItem(ICON_LIST_TREE, UiText("Копировать с вложенными", "\xB8\xB4\xD6\xC6\xB7\xD6\xD6\xA7\xBC\xB0\xD7\xD3\xCF\xEE", "Copy branch"))) {
 				CopyBranch(v, v.ctx, 0, out);
 				ImGui::SetClipboardText(out.c_str());
-				ShowToast(Tr("Ветка скопирована", "Branch copied"));
+				ShowToast(UiText("Ветка скопирована", "\xB7\xD6\xD6\xA7\xD2\xD1\xB8\xB4\xD6\xC6", "Branch copied"));
 			}
-			if (MenuItem(ICON_CLIPBOARD_COPY, Tr("Копировать всю таблицу", "Copy whole table"))) CopyAll(v);
-			if (v.lua && n.parent < 0 && strncmp(n.label.c_str(), "[samp]", 6) && MenuItem(ICON_CODE, Tr("Какие строки кода едят", "Inspect hot code lines"))) {
+			if (MenuItem(ICON_CLIPBOARD_COPY, UiText("Копировать всю таблицу", "\xB8\xB4\xD6\xC6\xD5\xFB\xB8\xF6\xB1\xED\xB8\xF1", "Copy entire table"))) CopyAll(v);
+			if (v.lua && n.parent < 0 && strncmp(n.label.c_str(), "[samp]", 6) && MenuItem(ICON_CODE, UiText("Какие строки кода едят", "\xB2\xE9\xBF\xB4\xC4\xC4\xD0\xA9\xB4\xFA\xC2\xEB\xD0\xD0\xD7\xEE\xBA\xC4\xCA\xB1", "See which code lines are costly"))) {
 				LuaLinesWatch(n.label.c_str());
 				g_luaView = 1;
 			}
@@ -875,7 +921,7 @@ static void DrawTree(TreeView &v, const char *id, float height)
 
 static void AutostartToggle(Fix *autostart, float right, float y)
 {
-	const char *label = Tr("Запускать с игрой", "Start with game");
+	const char *label = UiText("Запускать с игрой", "\xCB\xE6\xD3\xCE\xCF\xB7\xC6\xF4\xB6\xAF", "Start with game");
 	float lw = ImGui::CalcTextSize(label).x;
 	ImGui::SetCursorPos(ImVec2(right - 38 - 10 - lw, y + 7));
 	TextColored(pal::Text2, label);
@@ -888,19 +934,19 @@ static void TreeToolbar(TreeView &v, Fix *autostart)
 {
 	float x0 = ImGui::GetCursorPosX(), y0 = ImGui::GetCursorPosY();
 	float right = x0 + ImGui::GetContentRegionAvail().x - 6;
-	SearchBox("##treesearch", v.search, sizeof(v.search), 240, Tr("Поиск функции", "Search function"));
+	SearchBox("##treesearch", v.search, sizeof(v.search), 240, UiText("Поиск функции", "\xCB\xD1\xCB\xF7\xBA\xAF\xCA\xFD", "Search functions"));
 	ImGui::SameLine(0, 8);
 	bool anyOpen = !v.open.empty();
-	if (Button("##expand", anyOpen ? ICON_CHEVRONS_DOWN_UP : ICON_CHEVRONS_UP_DOWN, anyOpen ? Tr("Свернуть", "Collapse") : Tr("Раскрыть", "Expand"), false, 128)) {
+	if (Button("##expand", anyOpen ? ICON_CHEVRONS_DOWN_UP : ICON_CHEVRONS_UP_DOWN, anyOpen ? UiText("Свернуть", "\xD5\xDB\xB5\xFE", "Collapse") : UiText("Раскрыть", "\xD5\xB9\xBF\xAA", "Expand"), false, 128)) {
 		if (anyOpen) v.open.clear();
 		else
 			for (TreeNode &n : v.nodes)
 				if (!n.kids.empty()) v.open.insert(n.key);
 	}
 	ImGui::SameLine(0, 8);
-	if (Button("##pause", v.paused ? ICON_PLAY : ICON_PAUSE, v.paused ? Tr("Продолжить", "Resume") : Tr("Пауза", "Pause"), v.paused, 132)) v.paused = !v.paused;
+	if (Button("##pause", v.paused ? ICON_PLAY : ICON_PAUSE, v.paused ? UiText("Продолжить", "\xBC\xCC\xD0\xF8", "Resume") : UiText("Пауза", "\xD4\xDD\xCD\xA3", "Pause"), v.paused, 132)) v.paused = !v.paused;
 	ImGui::SameLine(0, 8);
-	if (Button("##copyall", ICON_CLIPBOARD_COPY, Tr("Копировать", "Copy"), false)) CopyAll(v);
+	if (Button("##copyall", ICON_CLIPBOARD_COPY, UiText("Копировать", "\xB8\xB4\xD6\xC6", "Copy"), false)) CopyAll(v);
 	AutostartToggle(autostart, right, y0);
 	ImGui::SetCursorPos(ImVec2(x0, y0 + 34 + 10));
 }
@@ -920,7 +966,7 @@ static void EmptyState(const char *icon, const char *title, const char *text, co
 	ImGui::SetCursorScreenPos(ImVec2(a.x + 36, a.y + 102));
 	ImGui::BeginGroup();
 	float iw = w - 72;
-	ImGui::PushFont(g_fonts.title);
+	ImGui::PushFont(UiFont(g_fonts.title));
 	ImGui::SetCursorPosX(ImGui::GetCursorPosX() + (iw - ImGui::CalcTextSize(title).x) * 0.5f);
 	TextColored(pal::Text, title);
 	ImGui::PopFont();
@@ -928,7 +974,7 @@ static void EmptyState(const char *icon, const char *title, const char *text, co
 	ImGui::SetCursorPosX(ImGui::GetCursorPosX() + ImMax(0.0f, (iw - tsz.x) * 0.5f));
 	TextWrapped(pal::Text2, text, iw);
 	if (warning) {
-		ImGui::PushFont(g_fonts.tiny);
+		ImGui::PushFont(UiFont(g_fonts.tiny));
 		float ww = ImGui::CalcTextSize(warning).x + 22;
 		ImGui::SetCursorPosX(ImGui::GetCursorPosX() + (iw - ww) * 0.5f);
 		InlineIcon(ICON_CIRCLE_ALERT, g_fonts.icon14, pal::Warn, 15);
@@ -940,15 +986,15 @@ static void EmptyState(const char *icon, const char *title, const char *text, co
 	const float bw = 210;
 	ImGui::SetCursorPosX(ImGui::GetCursorPosX() + (iw - bw) * 0.5f);
 	if (busy) {
-		ImGui::PushFont(g_fonts.medium);
+		ImGui::PushFont(UiFont(g_fonts.medium));
 		ImGui::SetCursorPosX(ImGui::GetCursorPosX() + 56);
-		TextColored(pal::Text2, Tr("Запускается…", "Starting..."));
+		TextColored(pal::Text2, UiText("Запускается…", "\xD5\xFD\xD4\xDA\xC6\xF4\xB6\xAF\xA1\xAD", "Starting…"));
 		ImGui::PopFont();
 	} else if (button && Button("##start", ICON_PLAY, button, true, bw)) {
 		start();
 	}
 	ImGui::Dummy(ImVec2(0, 8));
-	const char *label = Tr("Запускать вместе с игрой", "Start with game");
+	const char *label = UiText("Запускать вместе с игрой", "\xCB\xE6\xD3\xCE\xCF\xB7\xD2\xBB\xCD\xAC\xC6\xF4\xB6\xAF", "Start with game");
 	float lw = ImGui::CalcTextSize(label).x;
 	float lx = ImGui::GetCursorPosX() + (iw - lw - 48) * 0.5f;
 	float y = ImGui::GetCursorPosY();
@@ -977,10 +1023,11 @@ static void CodeLine(ImDrawList *dl, ImVec2 p, float w, int number, const std::s
 	dl->AddText(Snap(ImVec2(nx, ty)), Col(hot ? pal::Text : pal::Text2), Fit(code.c_str(), p.x + w - nx - 6).c_str());
 }
 
-static std::string CodeAt(const LineRow &r, bool trim)
+static std::string CodeAt(const LineRow &r, bool trim, bool localizeError = false)
 {
 	const std::vector<std::string> &src = LuaSource(r.path);
-	if (r.line < 1 || r.line > (int)src.size()) return trim ? Tr("(файл не прочитан)", "(file not read)") : "";
+	if (r.line < 1 || r.line > (int)src.size())
+		return trim ? (localizeError ? UiText("(файл не прочитан)", "\xA3\xA8\xCE\xC4\xBC\xFE\xCE\xB4\xB6\xC1\xC8\xA1\xA3\xA9", "(file not read)") : "(файл не прочитан)") : "";
 	const std::string &code = src[r.line - 1];
 	if (!trim) return code;
 	size_t lead = code.find_first_not_of(' ');
@@ -990,7 +1037,7 @@ static std::string CodeAt(const LineRow &r, bool trim)
 static void ScriptPicker()
 {
 	const char *cur = LuaLinesScript();
-	if (Button("##pick", ICON_FILE_CODE, cur ? cur : Tr("Выбрать скрипт", "Select script"), cur == nullptr, 300)) ImGui::OpenPopup("##scripts");
+	if (Button("##pick", ICON_FILE_CODE, cur ? cur : UiText("Выбрать скрипт", "\xD1\xA1\xD4\xF1\xBD\xC5\xB1\xBE", "Select script"), cur == nullptr, 300)) ImGui::OpenPopup("##scripts");
 	ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(6, 6));
 	ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(0, 2));
 	if (ImGui::BeginPopup("##scripts")) {
@@ -1005,7 +1052,7 @@ static void ScriptPicker()
 			ImGui::PopID();
 			shown++;
 		}
-		if (!shown) TextColored(pal::Text3, Tr("Скрипты ещё не появились", "No scripts detected yet"));
+		if (!shown) TextColored(pal::Text3, UiText("Скрипты ещё не появились", "\xC9\xD0\xCE\xB4\xB7\xA2\xCF\xD6\xBD\xC5\xB1\xBE", "No scripts found yet"));
 		ImGui::EndPopup();
 	}
 	ImGui::PopStyleVar(2);
@@ -1013,14 +1060,14 @@ static void ScriptPicker()
 
 static void CopyLines(const std::vector<LineRow> &rows)
 {
-	std::string all = Tr("% кадра\t% скрипта\tфайл:строка\tкод\n", "% frame\t% script\tfile:line\tcode\n");
+	std::string all = UiText("% кадра\t% скрипта\tфайл:строка\tкод\n", "\xD6\xA1\xD5\xBC\xB1\xC8\t\xBD\xC5\xB1\xBE\xD5\xBC\xB1\xC8\t\xCE\xC4\xBC\xFE:\xD0\xD0\xBA\xC5\t\xB4\xFA\xC2\xEB\n", "Frame %\tScript %\tFile:line\tCode\n");
 	for (const LineRow &q : rows) {
 		char line[400];
 		sprintf_s(line, "%.3f%%\t%.1f%%\t%s:%d\t", q.pct, 100 * q.share, q.file.c_str(), q.line);
 		all += line + CodeAt(q, true) + "\n";
 	}
 	ImGui::SetClipboardText(all.c_str());
-	ShowToast(Tr("Таблица скопирована", "Table copied"));
+	ShowToast(UiText("Таблица скопирована", "\xB1\xED\xB8\xF1\xD2\xD1\xB8\xB4\xD6\xC6", "Table copied"));
 }
 
 static void DrawLuaLines()
@@ -1031,15 +1078,15 @@ static void DrawLuaLines()
 	ScriptPicker();
 	if (LuaLinesScript()) {
 		ImGui::SameLine(0, 8);
-		if (Button("##lreset", ICON_REPEAT, Tr("Сначала", "Reset"), false)) LuaLinesReset();
+		if (Button("##lreset", ICON_REPEAT, UiText("Сначала", "\xD6\xD8\xD0\xC2\xBF\xAA\xCA\xBC", "Restart"), false)) LuaLinesReset();
 		ImGui::SameLine(0, 8);
-		if (Button("##lstop", ICON_PAUSE, Tr("Остановить", "Stop"), false)) LuaLinesWatch(nullptr);
+		if (Button("##lstop", ICON_PAUSE, UiText("Остановить", "\xCD\xA3\xD6\xB9", "Stop"), false)) LuaLinesWatch(nullptr);
 		ImGui::SameLine(0, 16);
 		ImGui::SetCursorPosY(y0 + 8);
 		char info[128];
-		sprintf_s(info, Tr("%.0f замеров за %.0f с", "%.0f samples in %.0f s"), samples, secs);
-		ImGui::PushFont(g_fonts.tiny);
-		if (samples < 200) TextColored(pal::Warn, Tr("Мало замеров — подожди, цифры уточнятся", "Few samples yet — wait for numbers to settle"));
+		sprintf_s(info, UiText("%.0f замеров за %.0f с", "%.0f \xB4\xCE\xB2\xC9\xD1\xF9 / %.0f \xC3\xEB", "%.0f samples over %.0f s"), samples, secs);
+		ImGui::PushFont(UiFont(g_fonts.tiny));
+		if (samples < 200) TextColored(pal::Warn, UiText("Мало замеров — подожди, цифры уточнятся", "\xB2\xC9\xD1\xF9\xB4\xCE\xCA\xFD\xBD\xCF\xC9\xD9\xA3\xAC\xC7\xEB\xC9\xD4\xBA\xF2\xA3\xAC\xCA\xFD\xBE\xDD\xBB\xE1\xB8\xFC\xD7\xBC\xC8\xB7", "Too few samples — wait for more accurate results"));
 		else TextColored(pal::Text3, info);
 		ImGui::PopFont();
 	}
@@ -1053,12 +1100,10 @@ static void DrawLuaLines()
 		ImGui::SetCursorScreenPos(ImVec2(p.x + 20, p.y + 18));
 		ImGui::BeginGroup();
 		TextWrapped(pal::Text2,
-		            LuaLinesScript() ? Tr("Собираю замеры… строки появятся, когда скрипт поработает.",
-		                                  "Collecting samples... lines will appear once the script runs.")
-		                             : Tr("Выбери скрипт: раз в миллисекунду видно, какая строка его кода сейчас выполняется — так находятся "
-		                                  "тяжёлые циклы и вызовы. Смотреть можно один скрипт за раз (так устроен LuaJIT).",
-		                                  "Pick a script: every millisecond it samples which line of code is executing so you can spot heavy loops "
-		                                  "and calls. One script can be watched at a time (LuaJIT limitation)."),
+		            LuaLinesScript() ? UiText("Собираю замеры… строки появятся, когда скрипт поработает.", "\xD5\xFD\xD4\xDA\xB2\xC9\xD1\xF9\xA1\xAD\xBD\xC5\xB1\xBE\xD4\xCB\xD0\xD0\xBA\xF3\xBB\xE1\xCF\xD4\xCA\xBE\xB4\xFA\xC2\xEB\xD0\xD0\xA1\xA3", "Collecting samples… lines will appear once the script runs.")
+		                             : UiText("Выбери скрипт: раз в миллисекунду видно, какая строка его кода сейчас выполняется — так находятся тяжёлые циклы и вызовы. Смотреть можно один скрипт за раз (так устроен LuaJIT).",
+		                                     "\xD1\xA1\xD4\xF1\xD2\xBB\xB8\xF6\xBD\xC5\xB1\xBE\xA3\xBA\xC3\xBF\xBA\xC1\xC3\xEB\xBC\xC7\xC2\xBC\xB5\xB1\xC7\xB0\xD6\xB4\xD0\xD0\xB5\xC4\xB4\xFA\xC2\xEB\xD0\xD0\xA3\xAC\xB1\xE3\xD3\xDA\xB7\xA2\xCF\xD6\xBA\xC4\xCA\xB1\xD1\xAD\xBB\xB7\xBA\xCD\xB5\xF7\xD3\xC3\xA1\xA3LuaJIT \xD2\xBB\xB4\xCE\xD6\xBB\xC4\xDC\xBC\xE0\xCA\xD3\xD2\xBB\xB8\xF6\xBD\xC5\xB1\xBE\xA1\xA3",
+		                                     "Select a script to see which line runs each millisecond, helping find costly loops and calls. LuaJIT can monitor one script at a time."),
 		            w - 40);
 		ImGui::EndGroup();
 		ImGui::SetCursorScreenPos(ImVec2(p.x, p.y + height));
@@ -1072,17 +1117,18 @@ static void DrawLuaLines()
 	ImGui::PushStyleColor(ImGuiCol_TableRowBgAlt, IM_COL32(218, 198, 168, 6));
 	if (ImGui::BeginTable("##lines", 4, ImGuiTableFlags_RowBg | ImGuiTableFlags_ScrollY | ImGuiTableFlags_PadOuterX, ImVec2(w, height))) {
 		ImGui::TableSetupScrollFreeze(0, 1);
-		ImGui::TableSetupColumn(Tr("% кадра", "% frame"), ImGuiTableColumnFlags_WidthFixed, 190);
-		ImGui::TableSetupColumn(Tr("скрипта", "script"), ImGuiTableColumnFlags_WidthFixed, 70);
-		ImGui::TableSetupColumn(Tr("строка", "line"), ImGuiTableColumnFlags_WidthFixed, 160);
-		ImGui::TableSetupColumn(Tr("код", "code"), ImGuiTableColumnFlags_WidthStretch);
+		ImGui::TableSetupColumn(UiText("% кадра", "\xD6\xA1\xD5\xBC\xB1\xC8", "Frame %"), ImGuiTableColumnFlags_WidthFixed, 190);
+		ImGui::TableSetupColumn(UiText("скрипта", "\xBD\xC5\xB1\xBE\xD5\xBC\xB1\xC8", "Script %"), ImGuiTableColumnFlags_WidthFixed, 70);
+		ImGui::TableSetupColumn(UiText("строка", "\xD0\xD0\xBA\xC5", "Line"), ImGuiTableColumnFlags_WidthFixed, 160);
+		ImGui::TableSetupColumn(UiText("код", "\xB4\xFA\xC2\xEB", "Code"), ImGuiTableColumnFlags_WidthStretch);
 		HeaderRow(4);
 		const float rowH = 36;
 		for (size_t k = 0; k < rows.size(); k++) {
 			const LineRow &r = rows[k];
 			if (r.share < 0.002 && k > 30) break;
-			std::string code = CodeAt(r, true);
-			int id = (int)Hash(r.path.c_str(), (unsigned)r.line);
+				std::string code = CodeAt(r, true);
+				std::string displayCode = CodeAt(r, true, true);
+				int id = (int)Hash(r.path.c_str(), (unsigned)r.line);
 			if (g_previewOpen && g_lineOpen == -1 && k == 1) g_lineOpen = id;
 			bool open = g_lineOpen == id;
 
@@ -1102,15 +1148,15 @@ static void DrawLuaLines()
 			if (ImGui::BeginPopupContextItem("##linectx")) {
 				char where[300];
 				sprintf_s(where, "%s:%d", r.file.c_str(), r.line);
-				if (MenuItem(ICON_COPY, Tr("Копировать код строки", "Copy line code"))) {
+				if (MenuItem(ICON_COPY, UiText("Копировать код строки", "\xB8\xB4\xD6\xC6\xB4\xFA\xC2\xEB\xD0\xD0", "Copy code line"))) {
 					ImGui::SetClipboardText(code.c_str());
-					ShowToast(Tr("Код скопирован", "Code copied"));
+					ShowToast(UiText("Код скопирован", "\xB4\xFA\xC2\xEB\xD2\xD1\xB8\xB4\xD6\xC6", "Code copied"));
 				}
-				if (MenuItem(ICON_HASH, Tr("Копировать файл:строку", "Copy file:line"))) {
+				if (MenuItem(ICON_HASH, UiText("Копировать файл:строку", "\xB8\xB4\xD6\xC6\xCE\xC4\xBC\xFE:\xD0\xD0\xBA\xC5", "Copy file:line"))) {
 					ImGui::SetClipboardText(where);
-					ShowToast(Tr("Скопировано", "Copied"));
+					ShowToast(UiText("Скопировано", "\xD2\xD1\xB8\xB4\xD6\xC6", "Copied"));
 				}
-				if (MenuItem(ICON_CLIPBOARD_COPY, Tr("Копировать всю таблицу", "Copy whole table"))) CopyLines(rows);
+				if (MenuItem(ICON_CLIPBOARD_COPY, UiText("Копировать всю таблицу", "\xB8\xB4\xD6\xC6\xD5\xFB\xB8\xF6\xB1\xED\xB8\xF1", "Copy entire table"))) CopyLines(rows);
 				ImGui::EndPopup();
 			}
 			ImGui::PopStyleVar(2);
@@ -1127,11 +1173,11 @@ static void DrawLuaLines()
 			ImGui::TableNextColumn();
 			c = ImGui::GetCursorScreenPos();
 			float cw = ImGui::GetContentRegionAvail().x;
-			ImGui::PushFont(g_fonts.mono);
+			ImGui::PushFont(UiFont(g_fonts.mono));
 			sprintf_s(buf, ":%d", r.line);
 			float nw = ImGui::CalcTextSize(buf).x;
 			float my = y + (rowH - ImGui::GetFontSize()) * 0.5f;
-			ImGui::PushFont(g_fonts.tiny);
+			ImGui::PushFont(UiFont(g_fonts.tiny));
 			std::string file = Fit(r.file.c_str(), cw - nw - 2);
 			float fw = ImGui::CalcTextSize(file.c_str()).x;
 			dl->AddText(Snap(ImVec2(c.x, y + (rowH - ImGui::GetFontSize()) * 0.5f - 1)), Col(pal::Text3), file.c_str());
@@ -1139,7 +1185,7 @@ static void DrawLuaLines()
 			dl->AddText(Snap(ImVec2(c.x + fw + 1, my)), Col(pal::Accent), buf);
 			ImGui::TableNextColumn();
 			c = ImGui::GetCursorScreenPos();
-			dl->AddText(Snap(ImVec2(c.x, my)), Col(pal::Text), Fit(code.c_str(), ImGui::GetContentRegionAvail().x - 4).c_str());
+			dl->AddText(Snap(ImVec2(c.x, my)), Col(pal::Text), Fit(displayCode.c_str(), ImGui::GetContentRegionAvail().x - 4).c_str());
 			ImGui::PopFont();
 
 			if (open) { // the code around it
@@ -1161,8 +1207,8 @@ static void DrawLuaLines()
 				                 ImVec2(ImMin(right + 12, inner.Max.x), ImMin(a.y + bh, inner.Max.y)), false);
 				dl->AddRectFilled(ImVec2(a.x, a.y + 4), ImVec2(right, a.y + bh - 6), Col(IM_COL32(16, 14, 19, 236)), 6);
 				dl->AddRect(ImVec2(a.x + 0.5f, a.y + 4.5f), ImVec2(right - 0.5f, a.y + bh - 6.5f), Col(pal::Line), 6);
-				ImGui::PushFont(g_fonts.mono);
-				if (src.empty()) dl->AddText(ImVec2(a.x + 14, a.y + 12), Col(pal::Text3), Tr("Файл не прочитан", "File not read"));
+				ImGui::PushFont(UiFont(g_fonts.mono));
+				if (src.empty()) dl->AddText(ImVec2(a.x + 14, a.y + 12), Col(pal::Text3), UiText("Файл не прочитан", "\xCE\xC4\xBC\xFE\xCE\xB4\xB6\xC1\xC8\xA1", "File not read"));
 				for (int ln = from; ln <= to && !src.empty(); ln++)
 					CodeLine(dl, ImVec2(a.x + 14, a.y + 10 + (ln - from) * lh), right - a.x - 28, ln, src[ln - 1], ln == r.line, lh);
 				ImGui::PopFont();
@@ -1177,28 +1223,28 @@ static void DrawLuaLines()
 
 static void DrawLuaPage()
 {
-	PageHeader(kTabs[TAB_LUA]);
+	PageHeader(TabText(TAB_LUA));
 	if (!LuaProfilerRunning()) {
 		bool ml = GetModuleHandleA("MoonLoader.asi") != nullptr;
-		EmptyState(ICON_BRACES, Tr("Профайлер не запущен", "Profiler not running"),
-		           ml ? Tr("Покажет, сколько забирает каждый скрипт — главный цикл, события, imgui-окна — и какие строки кода. Сам замер почти ничего не стоит.",
-		                   "Shows how much frame time each script uses (main loop, events, ImGui windows) and which lines of code. Negligible overhead.")
-		              : Tr("MoonLoader не найден — замерять нечего.", "MoonLoader not found — nothing to profile."),
-		           ml ? Tr("Запустить", "Start") : nullptr, false, LuaProfilerStartNow, &g_fixLuaProfiler, nullptr);
+		EmptyState(ICON_BRACES, UiText("Профайлер не запущен", "\xD0\xD4\xC4\xDC\xB7\xD6\xCE\xF6\xC6\xF7\xCE\xB4\xC6\xF4\xB6\xAF", "Profiler not running"),
+		           ml ? UiText("Покажет, сколько забирает каждый скрипт — главный цикл, события, imgui-окна — и какие строки кода. Сам замер почти ничего не стоит.",
+		                       "\xB2\xE9\xBF\xB4\xB8\xF7\xBD\xC5\xB1\xBE\xA1\xA2\xD6\xF7\xD1\xAD\xBB\xB7\xA1\xA2\xCA\xC2\xBC\xFE\xA1\xA2imgui \xB4\xB0\xBF\xDA\xBA\xCD\xB4\xFA\xC2\xEB\xD0\xD0\xB5\xC4\xBA\xC4\xCA\xB1\xA1\xA3\xB2\xC9\xD1\xF9\xB1\xBE\xC9\xED\xBC\xB8\xBA\xF5\xC3\xBB\xD3\xD0\xBF\xAA\xCF\xFA\xA1\xA3",
+		                       "See the time used by each script, its main loop, events, imgui windows and code lines. Sampling has almost no overhead.")
+		              : UiText("MoonLoader не найден — замерять нечего.", "\xCE\xB4\xD5\xD2\xB5\xBD MoonLoader\xA3\xAC\xCE\xDE\xB7\xA8\xBD\xF8\xD0\xD0\xB2\xC9\xD1\xF9\xA1\xA3", "MoonLoader not found; nothing to sample."),
+		           ml ? UiText("Запустить", "\xC6\xF4\xB6\xAF", "Start") : nullptr, false, LuaProfilerStartNow, &g_fixLuaProfiler, nullptr);
 		return;
 	}
 	BuildLuaTree(g_luaTree);
-	static const char *const viewsRu[] = { "Скрипты", "Строки кода" };
-	static const char *const viewsEn[] = { "Scripts", "Code lines" };
+	const char *views[] = { UiText("Скрипты", "\xBD\xC5\xB1\xBE", "Scripts"), UiText("Строки кода", "\xB4\xFA\xC2\xEB\xD0\xD0", "Code lines") };
 	float y = ImGui::GetCursorPosY();
-	Segmented("luaview", g_english ? viewsEn : viewsRu, 2, &g_luaView);
+	Segmented("luaview", views, 2, &g_luaView);
 	double total = 0;
 	for (int r : g_luaTree.roots) total += g_luaTree.nodes[r].incl;
 	char buf[64];
-	sprintf_s(buf, Tr("Все скрипты вместе: %.1f%% кадра", "All scripts combined: %.1f%% frame"), total);
+	sprintf_s(buf, UiText("Все скрипты вместе: %.1f%% кадра", "\xCB\xF9\xD3\xD0\xBD\xC5\xB1\xBE\xBA\xCF\xBC\xC6\xA3\xBA\xD5\xBC\xD6\xA1 %.1f%%", "All scripts combined: %.1f%% of frame"), total);
 	ImGui::SameLine(0, 18);
 	ImGui::SetCursorPosY(y + 6);
-	ImGui::PushFont(g_fonts.medium);
+	ImGui::PushFont(UiFont(g_fonts.medium));
 	TextColored(pal::Accent, buf);
 	ImGui::PopFont();
 	ImGui::SetCursorPosY(y + 34 + 10);
@@ -1213,15 +1259,14 @@ static void DrawLuaPage()
 static bool ProfilerGate(Tab tab)
 {
 	if (SampProfilerRunning()) return true;
-	const char *text = Tr("Покажет весь кадр одним деревом: этапы GTA (мир, физика, рендер, HUD) и функции samp.dll (игроки, объекты, ники, "
-	                      "чат, текстдравы) там, где они реально вызываются, — сколько % кадра и вызовов в секунду.",
-	                      "Shows the whole frame as one tree: GTA stages (world, physics, render, HUD) and samp.dll functions (players, objects, nametags, "
-	                      "chat, textdraws) where they actually run — frame % and calls per second.");
-	EmptyState(kTabs[tab].icon, Tr("Профайлер не запущен", "Profiler not running"),
-	           g_samp ? text : Tr("SA-MP ещё не загружен.", "SA-MP is not loaded yet."),
-	           g_samp ? Tr("Запустить", "Start") : nullptr,
+	const char *text = UiText("Покажет весь кадр одним деревом: этапы GTA (мир, физика, рендер, HUD) и функции samp.dll (игроки, объекты, ники, чат, текстдравы) там, где они реально вызываются, — сколько % кадра и вызовов в секунду.",
+	                         "\xD2\xD4\xD2\xBB\xBF\xC3\xCA\xF7\xCF\xD4\xCA\xBE\xD5\xFB\xD6\xA1\xA3\xBAGTA \xBD\xD7\xB6\xCE\xA3\xA8\xCA\xC0\xBD\xE7\xA1\xA2\xCE\xEF\xC0\xED\xA1\xA2\xE4\xD6\xC8\xBE\xA1\xA2HUD\xA3\xA9\xD2\xD4\xBC\xB0 samp.dll \xBA\xAF\xCA\xFD\xA3\xA8\xCD\xE6\xBC\xD2\xA1\xA2\xCE\xEF\xCC\xE5\xA1\xA2\xEA\xC7\xB3\xC6\xA1\xA2\xC1\xC4\xCC\xEC\xA1\xA2\xCE\xC4\xB1\xBE\xBB\xE6\xD6\xC6\xA3\xA9\xB5\xC4\xCA\xB5\xBC\xCA\xB5\xF7\xD3\xC3\xCE\xBB\xD6\xC3\xA1\xA2\xD6\xA1\xD5\xBC\xB1\xC8\xBA\xCD\xC3\xBF\xC3\xEB\xB5\xF7\xD3\xC3\xB4\xCE\xCA\xFD\xA1\xA3",
+	                         "See the whole frame as a tree: GTA stages (world, physics, rendering, HUD) and samp.dll functions (players, objects, names, chat, textdraws) at their actual call sites, with frame share and calls per second.");
+	EmptyState(TabText(tab).icon, UiText("Профайлер не запущен", "\xD0\xD4\xC4\xDC\xB7\xD6\xCE\xF6\xC6\xF7\xCE\xB4\xC6\xF4\xB6\xAF", "Profiler not running"),
+	           g_samp ? text : UiText("SA-MP ещё не загружен.", "SA-MP \xC9\xD0\xCE\xB4\xBC\xD3\xD4\xD8\xA1\xA3", "SA-MP is not loaded yet."),
+	           g_samp ? UiText("Запустить", "\xC6\xF4\xB6\xAF", "Start") : nullptr,
 	           SampProfilerStarting(), SampProfilerStartNow, &g_fixSampProfiler,
-	           Tr("Сам замер забирает ~6% кадра и работает до перезапуска игры", "Profiling itself costs ~6% frame time and runs until restart"));
+	           UiText("Сам замер забирает ~6% кадра и работает до перезапуска игры", "\xB2\xC9\xD1\xF9\xB1\xBE\xC9\xED\xD4\xBC\xD5\xBC\xD6\xA1\xBA\xC4\xCA\xB1\xB5\xC4 6%\xA3\xAC\xD6\xD8\xC6\xF4\xD3\xCE\xCF\xB7\xBA\xF3\xCD\xA3\xD6\xB9", "Sampling itself uses ~6% of frame time and runs until the game restarts"));
 	return false;
 }
 
@@ -1229,9 +1274,8 @@ static void CostNote()
 {
 	// drawn by hand from one point: on the line of the segmented control ImGui would push the text down
 	// by that line's frame padding and not the icon
-	const char *text = Tr("Замер замедляет игру до её перезапуска; его собственная доля из цифр вычтена",
-	                      "Profiling slows the game until restart; its own overhead is subtracted from numbers");
-	ImGui::PushFont(g_fonts.tiny);
+	const char *text = UiText("Замер замедляет игру до её перезапуска; его собственная доля из цифр вычтена", "\xB2\xC9\xD1\xF9\xBB\xE1\xBD\xB5\xB5\xCD\xD3\xCE\xCF\xB7\xD0\xD4\xC4\xDC\xA3\xAC\xD6\xB1\xB5\xBD\xD6\xD8\xC6\xF4\xA3\xBB\xCF\xD4\xCA\xBE\xCA\xFD\xBE\xDD\xD2\xD1\xBF\xDB\xB3\xFD\xB2\xC9\xD1\xF9\xD7\xD4\xC9\xED\xB5\xC4\xBF\xAA\xCF\xFA", "Sampling slows the game until restart; its own overhead is excluded from the figures");
+	ImGui::PushFont(UiFont(g_fonts.tiny));
 	ImDrawList *dl = ImGui::GetWindowDrawList();
 	ImVec2 p = Snap(ImGui::GetCursorScreenPos());
 	Icon(dl, ImVec2(p.x + 7.5f, p.y + TextMidY()), ICON_CIRCLE_ALERT, g_fonts.icon14, pal::Warn);
@@ -1253,10 +1297,10 @@ static void DrawOps(float height)
 	ImGui::PushStyleColor(ImGuiCol_TableRowBgAlt, IM_COL32(218, 198, 168, 6));
 	if (ImGui::BeginTable("##ops", 4, ImGuiTableFlags_RowBg | ImGuiTableFlags_ScrollY | ImGuiTableFlags_PadOuterX, ImVec2(w, height))) {
 		ImGui::TableSetupScrollFreeze(0, 1);
-		ImGui::TableSetupColumn(Tr("опкод", "opcode"), ImGuiTableColumnFlags_WidthFixed, 80);
-		ImGui::TableSetupColumn(Tr("вызов из", "called from"), ImGuiTableColumnFlags_WidthFixed, 130);
-		ImGui::TableSetupColumn(Tr("% кадра", "% frame"), ImGuiTableColumnFlags_WidthStretch);
-		ImGui::TableSetupColumn(Tr("вызовов/с", "calls/s"), ImGuiTableColumnFlags_WidthFixed, 92);
+		ImGui::TableSetupColumn(UiText("опкод", "\xB2\xD9\xD7\xF7\xC2\xEB", "Opcode"), ImGuiTableColumnFlags_WidthFixed, 80);
+		ImGui::TableSetupColumn(UiText("вызов из", "\xB5\xF7\xD3\xC3\xCE\xBB\xD6\xC3", "Call site"), ImGuiTableColumnFlags_WidthFixed, 130);
+		ImGui::TableSetupColumn(UiText("% кадра", "\xD6\xA1\xD5\xBC\xB1\xC8", "Frame %"), ImGuiTableColumnFlags_WidthStretch);
+		ImGui::TableSetupColumn(UiText("вызовов/с", "\xB5\xF7\xD3\xC3/\xC3\xEB", "Calls/s"), ImGuiTableColumnFlags_WidthFixed, 92);
 		HeaderRow(4);
 		for (size_t k = 0; k < ops.size(); k++) {
 			const OpRow &o = ops[k];
@@ -1273,9 +1317,9 @@ static void DrawOps(float height)
 			if (ImGui::BeginPopupContextItem("##opctx")) {
 				char line[96];
 				sprintf_s(line, "%04X\tsamp+%05lX\t%.2f%%\t%.0f/s", o.op, o.site, o.incl, o.calls);
-				if (MenuItem(ICON_COPY, Tr("Копировать строку", "Copy row"))) {
+				if (MenuItem(ICON_COPY, UiText("Копировать строку", "\xB8\xB4\xD6\xC6\xB4\xCB\xD0\xD0", "Copy row"))) {
 					ImGui::SetClipboardText(line);
-					ShowToast(Tr("Строка скопирована", "Row copied"));
+					ShowToast(UiText("Строка скопирована", "\xD2\xD1\xB8\xB4\xD6\xC6\xB4\xCB\xD0\xD0", "Row copied"));
 				}
 				ImGui::EndPopup();
 			}
@@ -1283,7 +1327,7 @@ static void DrawOps(float height)
 			ImGui::PopID();
 			ImDrawList *dl = ImGui::GetWindowDrawList();
 			char buf[32];
-			ImGui::PushFont(g_fonts.mono);
+			ImGui::PushFont(UiFont(g_fonts.mono));
 			float my = y + (rowH - ImGui::GetFontSize()) * 0.5f - 1;
 			sprintf_s(buf, "%04X", o.op);
 			dl->AddText(Snap(ImVec2(c.x, my)), Col(pal::Text), buf);
@@ -1308,15 +1352,14 @@ static void DrawOps(float height)
 
 static void DrawProfPage()
 {
-	PageHeader(kTabs[TAB_PROF]);
+	PageHeader(TabText(TAB_PROF));
 	if (!ProfilerGate(TAB_PROF)) return;
 	BuildTimerTree(g_profTree);
 	TreeToolbar(g_profTree, &g_fixSampProfiler);
 	static int view;
-	static const char *const viewsRu[] = { "Кадр", "Скриптовые опкоды" };
-	static const char *const viewsEn[] = { "Frame", "Script opcodes" };
+	const char *views[] = { UiText("Кадр", "\xD6\xA1", "Frame"), UiText("Скриптовые опкоды", "\xBD\xC5\xB1\xBE\xB2\xD9\xD7\xF7\xC2\xEB", "Script opcodes") };
 	float y = ImGui::GetCursorPosY();
-	Segmented("profview", g_english ? viewsEn : viewsRu, 2, &view);
+	Segmented("profview", views, 2, &view);
 	ImGui::SameLine(0, 16);
 	ImGui::SetCursorPosY(y + 9);
 	CostNote();
@@ -1332,11 +1375,11 @@ static Fix g_spikeAutostart = { .section = "SpikeProfiler", .defaultOn = false }
 static void StatCard(ImDrawList *dl, ImVec2 a, float w, float h, const char *label, const char *value, const char *note, ImU32 col)
 {
 	Surface(dl, a, ImVec2(a.x + w, a.y + h), 12, pal::Panel);
-	ImGui::PushFont(g_fonts.tiny);
+	ImGui::PushFont(UiFont(g_fonts.tiny));
 	dl->AddText(Snap(ImVec2(a.x + 14, a.y + 10)), Col(pal::Text3), label);
 	dl->AddText(Snap(ImVec2(a.x + 14, a.y + h - 24)), Col(pal::Text2), note);
 	ImGui::PopFont();
-	ImGui::PushFont(g_fonts.title);
+	ImGui::PushFont(UiFont(g_fonts.title));
 	dl->AddText(Snap(ImVec2(a.x + 14, a.y + 27)), Col(col), value);
 	ImGui::PopFont();
 }
@@ -1361,23 +1404,22 @@ static void FrameGraph(ImVec2 a, float w, float h, float normalMs)
 		dl->AddRectFilled(ImVec2(x, y1 - ImMax(1.0f, span * t)), ImVec2(x + 1.5f, y1), Col(spike ? pal::Bad : Alpha(pal::Accent2, 0.75f)));
 	}
 	char buf[160]; // UTF-8: two bytes a letter
-	sprintf_s(buf, Tr("последние %d кадров, верх шкалы %.0f мс", "last %d frames, top %.0f ms"), n, top);
-	ImGui::PushFont(g_fonts.tiny);
+	sprintf_s(buf, UiText("последние %d кадров, верх шкалы %.0f мс", "\xD7\xEE\xBD\xFC %d \xD6\xA1\xA3\xAC\xCD\xBC\xB1\xED\xC9\xCF\xCF\xDE %.0f \xBA\xC1\xC3\xEB", "Last %d frames, graph maximum %.0f ms"), n, top);
+	ImGui::PushFont(UiFont(g_fonts.tiny));
 	dl->AddText(Snap(ImVec2(a.x + 14, a.y + 8)), Col(pal::Text3), buf);
 	ImGui::PopFont();
 }
 
 static void DrawLagPage()
 {
-	PageHeader(kTabs[TAB_LAG]);
+	PageHeader(TabText(TAB_LAG));
 	if (!SpikeProfilerRunning()) {
-		EmptyState(kTabs[TAB_LAG].icon, Tr("Замер не запущен", "Monitor not running"),
-		           Tr("Покажет каждый долгий кадр (фриз) и на что он ушёл: код игры и плагинов, ожидание диска или блокировки, "
-		              "Present видеокарты. Плюс 1% и 0.1% low и задержку от чтения клавиш и мыши до отправки кадра.",
-		              "Shows every long frame (stutter) and where time went: game/plugin code, disk/lock waits, or GPU Present. "
-		              "Also tracks 1% and 0.1% lows plus input-to-frame latency."),
-		           Tr("Запустить", "Start"), false, SpikeProfilerStart, &g_spikeAutostart,
-		           Tr("Считает, пока меню закрыто: запусти, поиграй и открой снова", "Records while menu is closed: start, play, and reopen"));
+		EmptyState(TabText(TAB_LAG).icon, UiText("Замер не запущен", "\xC9\xD0\xCE\xB4\xBF\xAA\xCA\xBC\xB2\xC9\xD1\xF9", "Sampling not started"),
+		           UiText("Покажет каждый долгий кадр (фриз) и на что он ушёл: код игры и плагинов, ожидание диска или блокировки, Present видеокарты. Плюс 1% и 0.1% low и задержку от чтения клавиш и мыши до отправки кадра.",
+		                   "\xB2\xE9\xBF\xB4\xC3\xBF\xB8\xF6\xC2\xFD\xD6\xA1\xA3\xA8\xBF\xA8\xB6\xD9\xA3\xA9\xBC\xB0\xC6\xE4\xBA\xC4\xCA\xB1\xD4\xAD\xD2\xF2\xA3\xBA\xD3\xCE\xCF\xB7\xBA\xCD\xB2\xE5\xBC\xFE\xB4\xFA\xC2\xEB\xA1\xA2\xB4\xC5\xC5\xCC\xBB\xF2\xCB\xF8\xB5\xC8\xB4\xFD\xA1\xA2\xCF\xD4\xBF\xA8 Present\xA1\xA3\xBB\xB9\xBF\xC9\xB2\xE9\xBF\xB4 1%/0.1% low\xA3\xAC\xD2\xD4\xBC\xB0\xB4\xD3\xB6\xC1\xC8\xA1\xBC\xFC\xCA\xF3\xB5\xBD\xCC\xE1\xBD\xBB\xD6\xA1\xB5\xC4\xD1\xD3\xB3\xD9\xA1\xA3",
+		                   "See every slow frame (stutter) and its cost: game and plugin code, disk or lock waits, and GPU Present. Also includes 1%/0.1% lows and input-to-frame latency."),
+		           UiText("Запустить", "\xC6\xF4\xB6\xAF", "Start"), false, SpikeProfilerStart, &g_spikeAutostart,
+		           UiText("Считает, пока меню закрыто: запусти, поиграй и открой снова", "\xB2\xCB\xB5\xA5\xB9\xD8\xB1\xD5\xCA\xB1\xBB\xE1\xBC\xCC\xD0\xF8\xB2\xC9\xD1\xF9\xA3\xBA\xC6\xF4\xB6\xAF\xBA\xF3\xBD\xF8\xD0\xD0\xD3\xCE\xCF\xB7\xA3\xAC\xD4\xD9\xD6\xD8\xD0\xC2\xB4\xF2\xBF\xAA\xB2\xCB\xB5\xA5", "Sampling continues while the menu is closed. Start it, play, then open the menu again."));
 		return;
 	}
 	const SpikeSummary &s = SpikeProfilerSummary();
@@ -1387,13 +1429,13 @@ static void DrawLagPage()
 
 	float x0 = ImGui::GetCursorPosX(), y0 = ImGui::GetCursorPosY();
 	float right = x0 + ImGui::GetContentRegionAvail().x - 6;
-	if (Button("##lagreset", ICON_X, Tr("Сбросить", "Reset"), false, 128)) SpikeProfilerReset();
+	if (Button("##lagreset", ICON_X, UiText("Сбросить", "\xD6\xD8\xD6\xC3", "Reset"), false, 128)) SpikeProfilerReset();
 	ImGui::SameLine(0, 8);
-	if (Button("##lagstop", ICON_PAUSE, Tr("Остановить", "Stop"), false, 140)) SpikeProfilerStop();
+	if (Button("##lagstop", ICON_PAUSE, UiText("Остановить", "\xCD\xA3\xD6\xB9", "Stop"), false, 140)) SpikeProfilerStop();
 	ImGui::SameLine(0, 8);
-	if (Button("##lagcopy", ICON_CLIPBOARD_COPY, Tr("Копировать", "Copy"), false)) {
+	if (Button("##lagcopy", ICON_CLIPBOARD_COPY, UiText("Копировать", "\xB8\xB4\xD6\xC6", "Copy"), false)) {
 		ImGui::SetClipboardText(SpikeProfilerText().c_str());
-		ShowToast(Tr("Замер скопирован", "Report copied"));
+		ShowToast(UiText("Замер скопирован", "\xB2\xC9\xD1\xF9\xCA\xFD\xBE\xDD\xD2\xD1\xB8\xB4\xD6\xC6", "Sample copied"));
 	}
 	AutostartToggle(&g_spikeAutostart, right, y0);
 	ImGui::SetCursorPos(ImVec2(x0, y0 + 34 + 10));
@@ -1403,38 +1445,36 @@ static void DrawLagPage()
 	const float gap = 10, cardH = 84;
 	float cw = (float)(int)((w - gap * 4) / 5);
 	sprintf_s(v, "%.0f FPS", fps(s.avgMs));
-	sprintf_s(note, Tr("кадр %.2f мс", "frame %.2f ms"), s.avgMs);
-	StatCard(dl, p, cw, cardH, Tr("Средний", "Average"), v, note, pal::Text);
+	sprintf_s(note, UiText("кадр %.2f мс", "\xD6\xA1\xBA\xC4\xCA\xB1 %.2f \xBA\xC1\xC3\xEB", "frame %.2f ms"), s.avgMs);
+	StatCard(dl, p, cw, cardH, UiText("Средний", "\xC6\xBD\xBE\xF9", "Average"), v, note, pal::Text);
 	sprintf_s(v, "%.0f FPS", fps(s.low1Ms));
-	sprintf_s(note, Tr("кадр %.1f мс", "frame %.1f ms"), s.low1Ms);
+	sprintf_s(note, UiText("кадр %.1f мс", "\xD6\xA1\xBA\xC4\xCA\xB1 %.1f \xBA\xC1\xC3\xEB", "frame %.1f ms"), s.low1Ms);
 	StatCard(dl, ImVec2(p.x + (cw + gap), p.y), cw, cardH, "1% low", v, note, s.low1Ms > s.avgMs * 2.5f ? pal::Warn : pal::Text);
 	sprintf_s(v, "%.0f FPS", fps(s.low01Ms));
-	sprintf_s(note, Tr("худший %.0f мс", "worst %.0f ms"), s.worstMs);
+	sprintf_s(note, UiText("худший %.0f мс", "\xD7\xEE\xB2\xEE %.0f \xBA\xC1\xC3\xEB", "worst %.0f ms"), s.worstMs);
 	StatCard(dl, ImVec2(p.x + (cw + gap) * 2, p.y), cw, cardH, "0.1% low", v, note, s.low01Ms > s.avgMs * 4 ? pal::Bad : pal::Text);
 	sprintf_s(v, "%d", s.spikes);
-	sprintf_s(note, Tr("%.1f в минуту", "%.1f per min"), s.seconds > 0 ? s.spikes * 60.0 / s.seconds : 0.0);
-	StatCard(dl, ImVec2(p.x + (cw + gap) * 3, p.y), cw, cardH, Tr("Фризов", "Stutters"), v, note, s.spikes ? pal::Warn : pal::Ok);
+	sprintf_s(note, UiText("%.1f в минуту", "\xC3\xBF\xB7\xD6\xD6\xD3 %.1f \xB4\xCE", "%.1f per minute"), s.seconds > 0 ? s.spikes * 60.0 / s.seconds : 0.0);
+	StatCard(dl, ImVec2(p.x + (cw + gap) * 3, p.y), cw, cardH, UiText("Фризов", "\xBF\xA8\xB6\xD9", "Stutters"), v, note, s.spikes ? pal::Warn : pal::Ok);
 	if (s.inputMeasured) {
-		sprintf_s(v, Tr("%.1f мс", "%.1f ms"), s.inputMs);
-		sprintf_s(note, Tr("1%% худших %.1f мс", "worst 1%% %.1f ms"), s.inputWorstMs);
+		sprintf_s(v, UiText("%.1f мс", "%.1f \xBA\xC1\xC3\xEB", "%.1f ms"), s.inputMs);
+		sprintf_s(note, UiText("1%% худших %.1f мс", "\xD7\xEE\xC2\xFD 1%%\xA3\xBA%.1f \xBA\xC1\xC3\xEB", "slowest 1%%: %.1f ms"), s.inputWorstMs);
 	} else {
-		sprintf_s(v, Tr("нет", "n/a"));
-		sprintf_s(note, Tr("нужна GTA SA 1.0 US", "needs GTA SA 1.0 US"));
+		sprintf_s(v, "%s", UiText("нет", "\xCE\xDE", "n/a"));
+		sprintf_s(note, "%s", UiText("нужна GTA SA 1.0 US", "\xD0\xE8\xD2\xAA GTA SA 1.0 US", "requires GTA SA 1.0 US"));
 	}
-	StatCard(dl, ImVec2(p.x + (cw + gap) * 4, p.y), w - (cw + gap) * 4, cardH, Tr("Ввод до кадра", "Input latency"), v, note, pal::Accent);
+	StatCard(dl, ImVec2(p.x + (cw + gap) * 4, p.y), w - (cw + gap) * 4, cardH, UiText("Ввод до кадра", "\xCA\xE4\xC8\xEB\xB5\xBD\xD6\xA1\xD1\xD3\xB3\xD9", "Input-to-frame"), v, note, pal::Accent);
 
 	// what a frame is made of, and what the freezes were
 	ImVec2 q(p.x, p.y + cardH + gap);
 	const float infoH = 86;
 	float half = (float)(int)((w - gap) / 2);
 	Surface(dl, q, ImVec2(q.x + half, q.y + infoH), 12, pal::Panel);
-	ImGui::PushFont(g_fonts.tiny);
-	dl->AddText(Snap(ImVec2(q.x + 14, q.y + 10)), Col(pal::Text3), Tr("Из чего состоит обычный кадр", "Typical frame breakdown"));
+	ImGui::PushFont(UiFont(g_fonts.tiny));
+	dl->AddText(Snap(ImVec2(q.x + 14, q.y + 10)), Col(pal::Text3), UiText("Из чего состоит обычный кадр", "\xC6\xD5\xCD\xA8\xD6\xA1\xB5\xC4\xBA\xC4\xCA\xB1\xB9\xB9\xB3\xC9", "What a typical frame consists of"));
 	const float shares[SPIKE_CAUSES] = { s.cpuShare, s.waitShare, s.presentShare };
 	const ImU32 cols[SPIKE_CAUSES] = { pal::Accent2, pal::Warn, pal::Accent };
-	static const char *const shortRu[SPIKE_CAUSES] = { "код", "ожидание", "Present" };
-	static const char *const shortEn[SPIKE_CAUSES] = { "code", "wait", "Present" };
-	const char *const *shortNames = g_english ? shortEn : shortRu;
+	const char *shortNames[SPIKE_CAUSES] = { UiText("код", "\xB4\xFA\xC2\xEB", "Code"), UiText("ожидание", "\xB5\xC8\xB4\xFD", "Wait"), "Present" };
 	float bx = q.x + 14, bw = half - 28;
 	for (int k = 0; k < SPIKE_CAUSES; k++) {
 		float seg = bw * ImClamp(shares[k], 0.0f, 1.0f);
@@ -1450,12 +1490,12 @@ static void DrawLagPage()
 	}
 	ImVec2 q2(q.x + half + gap, q.y);
 	Surface(dl, q2, ImVec2(p.x + w, q.y + infoH), 12, pal::Panel);
-	dl->AddText(Snap(ImVec2(q2.x + 14, q2.y + 10)), Col(pal::Text3), Tr("Отчего были фризы", "Stutter causes"));
+	dl->AddText(Snap(ImVec2(q2.x + 14, q2.y + 10)), Col(pal::Text3), UiText("Отчего были фризы", "\xBF\xA8\xB6\xD9\xD4\xAD\xD2\xF2", "Stutter causes"));
 	for (int k = 0; k < SPIKE_CAUSES; k++) {
 		sprintf_s(note, "%d", s.causeCount[k]);
 		float ry = q2.y + 30 + k * 17.0f;
 		dl->AddRectFilled(ImVec2(q2.x + 14, ry + 4), ImVec2(q2.x + 22, ry + 12), Col(cols[k]), 2);
-		dl->AddText(Snap(ImVec2(q2.x + 28, ry)), Col(s.causeCount[k] ? pal::Text : pal::Text3), SpikeCauseName(k));
+		dl->AddText(Snap(ImVec2(q2.x + 28, ry)), Col(s.causeCount[k] ? pal::Text : pal::Text3), SpikeCauseUiLabel(k));
 		dl->AddText(Snap(ImVec2(p.x + w - 14 - ImGui::CalcTextSize(note).x, ry)), Col(s.causeCount[k] ? pal::Text : pal::Text3), note);
 	}
 	ImGui::PopFont();
@@ -1470,8 +1510,8 @@ static void DrawLagPage()
 	Surface(dl, t, ImVec2(t.x + w, t.y + height), 12, pal::Panel);
 	const std::vector<SpikeRow> &rows = SpikeProfilerRows();
 	if (rows.empty()) {
-		const char *text = s.frames < 200 ? Tr("Закрой меню и поиграй: кадры считаются, пока меню закрыто", "Close the menu and play: frames are recorded while closed")
-		                                  : Tr("Фризов не было", "No stutters recorded");
+		const char *text = s.frames < 200 ? UiText("Закрой меню и поиграй: кадры считаются, пока меню закрыто", "\xB9\xD8\xB1\xD5\xB2\xCB\xB5\xA5\xB2\xA2\xBD\xF8\xD0\xD0\xD3\xCE\xCF\xB7\xA3\xBA\xB2\xCB\xB5\xA5\xB9\xD8\xB1\xD5\xCA\xB1\xC8\xD4\xBB\xE1\xCD\xB3\xBC\xC6\xD6\xA1\xCA\xFD\xBE\xDD", "Close the menu and play; frames are sampled while it is closed")
+		                                  : UiText("Фризов не было", "\xC3\xBB\xD3\xD0\xBF\xA8\xB6\xD9", "No stutters");
 		ImVec2 sz = ImGui::CalcTextSize(text);
 		dl->AddText(Snap(ImVec2(t.x + (w - sz.x) * 0.5f, t.y + (height - sz.y) * 0.5f)), Col(pal::Text3), text);
 		ImGui::Dummy(ImVec2(w, height));
@@ -1482,12 +1522,12 @@ static void DrawLagPage()
 	ImGui::PushStyleColor(ImGuiCol_TableRowBgAlt, IM_COL32(218, 198, 168, 6));
 	if (ImGui::BeginTable("##spikes", 6, ImGuiTableFlags_RowBg | ImGuiTableFlags_ScrollY | ImGuiTableFlags_PadOuterX, ImVec2(w, height))) {
 		ImGui::TableSetupScrollFreeze(0, 1);
-		ImGui::TableSetupColumn(Tr("время", "time"), ImGuiTableColumnFlags_WidthFixed, 56);
-		ImGui::TableSetupColumn(Tr("кадр", "frame"), ImGuiTableColumnFlags_WidthFixed, 70);
-		ImGui::TableSetupColumn(Tr("код", "code"), ImGuiTableColumnFlags_WidthFixed, 56);
-		ImGui::TableSetupColumn(Tr("ожид.", "wait"), ImGuiTableColumnFlags_WidthFixed, 56);
+		ImGui::TableSetupColumn(UiText("время", "\xCA\xB1\xBC\xE4", "Time"), ImGuiTableColumnFlags_WidthFixed, 56);
+		ImGui::TableSetupColumn(UiText("кадр", "\xD6\xA1\xBA\xC4\xCA\xB1", "Frame"), ImGuiTableColumnFlags_WidthFixed, 70);
+		ImGui::TableSetupColumn(UiText("код", "\xB4\xFA\xC2\xEB", "Code"), ImGuiTableColumnFlags_WidthFixed, 56);
+		ImGui::TableSetupColumn(UiText("ожид.", "\xB5\xC8\xB4\xFD", "Wait"), ImGuiTableColumnFlags_WidthFixed, 56);
 		ImGui::TableSetupColumn("Present", ImGuiTableColumnFlags_WidthFixed, 60);
-		ImGui::TableSetupColumn(Tr("причина", "cause"), ImGuiTableColumnFlags_WidthStretch);
+		ImGui::TableSetupColumn(UiText("причина", "\xD4\xAD\xD2\xF2", "Cause"), ImGuiTableColumnFlags_WidthStretch);
 		HeaderRow(6);
 		for (int k = (int)rows.size() - 1; k >= 0; k--) {
 			const SpikeRow &r = rows[k];
@@ -1505,28 +1545,28 @@ static void DrawLagPage()
 			bool hovered = ImGui::IsItemHovered();
 			ImGui::PopID();
 
-			std::string cause = SpikeCauseName(r.cause);
+			std::string cause = SpikeCauseUiLabel(r.cause);
 			char extra[160];
 			if (r.streamKb >= 64) {
-				sprintf_s(extra, Tr(" · модели +%d КБ", " · models +%d KB"), r.streamKb);
+				sprintf_s(extra, UiText(" · модели +%d КБ", " \xA1\xA4 \xC4\xA3\xD0\xCD +%d KB", " · models +%d KB"), r.streamKb);
 				cause += extra;
 			}
 			if (r.faults >= 100) {
-				sprintf_s(extra, Tr(" · подкачка %lu стр.", " · pagefaults %lu"), r.faults);
+				sprintf_s(extra, UiText(" · подкачка %lu стр.", " \xA1\xA4 \xD2\xB3\xC3\xE6\xB5\xF7\xC8\xEB %lu \xD2\xB3", " · paging %lu pages"), r.faults);
 				cause += extra;
 			}
 			if (!r.top.empty()) cause += " · " + r.top;
 			if (!r.stack.empty()) cause += " · " + r.stack.substr(0, r.stack.find('\n'));
-			if (hovered) {
-				char tip[2048];
-				_snprintf_s(tip, _TRUNCATE,
-				          Tr("Кадр %.1f мс при обычном %.1f мс.\nКод %.1f мс, ожидание %.1f мс, Present %.1f мс.\nМодели: %+d КБ, страничных ошибок: %lu.%s%s%s%s",
-				             "Frame %.1f ms vs normal %.1f ms.\nCode %.1f ms, wait %.1f ms, Present %.1f ms.\nModels: %+d KB, page faults: %lu.%s%s%s%s"),
-				          r.ms, r.normal, r.cpu, r.wait, r.present, r.streamKb, r.faults,
-				          r.top.empty() ? "" : Tr("\nВыросли: ", "\nSpiked: "), r.top.c_str(),
-				          r.stack.empty() ? "" : Tr("\nГде стояла игра:\n", "\nWhere the game stalled:\n"), r.stack.c_str());
-				Tooltip(SpikeCauseName(r.cause), tip);
-			}
+				if (hovered) {
+					char tip[2048];
+					_snprintf_s(tip, _TRUNCATE, UiText("Кадр %.1f мс при обычном %.1f мс.\nКод %.1f мс, ожидание %.1f мс, Present %.1f мс.\nМодели: %+d КБ, страничных ошибок: %lu.%s%s%s%s",
+						                                "\xD6\xA1\xBA\xC4\xCA\xB1 %.1f \xBA\xC1\xC3\xEB\xA3\xA8\xCD\xA8\xB3\xA3 %.1f \xBA\xC1\xC3\xEB\xA3\xA9\xA1\xA3\n\xB4\xFA\xC2\xEB %.1f \xBA\xC1\xC3\xEB\xA3\xAC\xB5\xC8\xB4\xFD %.1f \xBA\xC1\xC3\xEB\xA3\xACPresent %.1f \xBA\xC1\xC3\xEB\xA1\xA3\n\xC4\xA3\xD0\xCD\xA3\xBA%+d KB\xA3\xAC\xC8\xB1\xD2\xB3\xA3\xBA%lu.%s%s%s%s",
+						                                "Frame %.1f ms (usual %.1f ms).\nCode %.1f ms, wait %.1f ms, Present %.1f ms.\nModels: %+d KB, page faults: %lu.%s%s%s%s"),
+					          r.ms, r.normal, r.cpu, r.wait, r.present, r.streamKb, r.faults,
+					          r.top.empty() ? "" : UiText("\nВыросли: ", "\n\xD4\xF6\xB3\xA4\xCF\xEE\xA3\xBA", "\nIncreased: "), r.top.c_str(),
+					          r.stack.empty() ? "" : UiText("\nГде стояла игра:\n", "\n\xD3\xCE\xCF\xB7\xBF\xA8\xD4\xDA\xA3\xBA\n", "\nGame was blocked at:\n"), r.stack.c_str());
+					Tooltip(SpikeCauseUiLabel(r.cause), tip);
+				}
 			char buf[32];
 			sprintf_s(buf, "%d:%02d", (int)r.at / 60, (int)r.at % 60);
 			tdl->AddText(Snap(ImVec2(c.x, my)), Col(pal::Text3), buf);
@@ -1558,22 +1598,22 @@ static void DrawLogPage()
 	size_t before = lines.size();
 	LogTail(lines, seen);
 
-	PageHeader(kTabs[TAB_LOGS]);
+	PageHeader(TabText(TAB_LOGS));
 	float y = ImGui::GetCursorPosY();
-	if (Button("##copy", ICON_COPY, Tr("Копировать всё", "Copy all"), false)) {
+	if (Button("##copy", ICON_COPY, UiText("Копировать всё", "\xB8\xB4\xD6\xC6\xC8\xAB\xB2\xBF", "Copy all"), false)) {
 		std::string all;
 		for (const std::string &l : lines) all += l + "\n";
 		ImGui::SetClipboardText(all.c_str());
-		ShowToast(Tr("Журнал скопирован", "Log copied"));
+		ShowToast(UiText("Журнал скопирован", "\xC8\xD5\xD6\xBE\xD2\xD1\xB8\xB4\xD6\xC6", "Log copied"));
 	}
 	ImGui::SameLine(0, 8);
-	if (Button("##folder", ICON_FOLDER_OPEN, Tr("Папка игры", "Game folder"), false)) ShellExecuteA(nullptr, "open", g_dir, nullptr, nullptr, SW_SHOWNORMAL);
+	if (Button("##folder", ICON_FOLDER_OPEN, UiText("Папка игры", "\xD3\xCE\xCF\xB7\xCE\xC4\xBC\xFE\xBC\xD0", "Game folder"), false)) ShellExecuteA(nullptr, "open", g_dir, nullptr, nullptr, SW_SHOWNORMAL);
 	ImGui::SameLine(0, 20);
 	float x = ImGui::GetCursorPosX();
 	ImGui::SetCursorPos(ImVec2(x, y + 6));
 	Toggle("##autoscroll", &autoscroll);
 	ImGui::SetCursorPos(ImVec2(x + 48, y + 7));
-	TextColored(pal::Text2, Tr("Автопрокрутка", "Autoscroll"));
+	TextColored(pal::Text2, UiText("Автопрокрутка", "\xD7\xD4\xB6\xAF\xB9\xF6\xB6\xAF", "Auto-scroll"));
 	ImGui::SetCursorPosY(y + 34 + 10);
 
 	ImVec2 p = ImGui::GetCursorScreenPos();
@@ -1582,7 +1622,7 @@ static void DrawLogPage()
 	ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(16, 14));
 	ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(8, 5));
 	ImGui::BeginChild("##log", ImVec2(avail.x, avail.y - 2), ImGuiChildFlags_AlwaysUseWindowPadding, ImGuiWindowFlags_NoBackground);
-	ImGui::PushFont(g_fonts.mono);
+	ImGui::PushFont(UiFont(g_fonts.mono));
 	for (const std::string &l : lines) {
 		ImU32 col = pal::Text2;
 		if (l.find("MISMATCH") != std::string::npos || l.find("failed") != std::string::npos) col = pal::Bad;
@@ -1609,18 +1649,18 @@ static ImVec2 SettingRow(ImVec2 p, float w, const char *icon, const char *title,
 	ImDrawList *dl = ImGui::GetWindowDrawList();
 	IconTile(dl, ImVec2(p.x, p.y + (rowH - 34) * 0.5f), 34, icon, g_fonts.icon14, pal::Text2);
 	float textW = w - 48 - controlW - 22;
-	ImGui::PushFont(g_fonts.medium);
+	ImGui::PushFont(UiFont(g_fonts.medium));
 	float th = ImGui::GetFontSize();
 	ImGui::PopFont();
-	ImGui::PushFont(g_fonts.tiny);
+	ImGui::PushFont(UiFont(g_fonts.tiny));
 	float hh = ImGui::CalcTextSize(hint, nullptr, false, textW).y;
 	ImGui::PopFont();
 	float ty = (float)(int)(p.y + (rowH - (th + 2 + hh)) * 0.5f);
-	ImGui::PushFont(g_fonts.medium);
+	ImGui::PushFont(UiFont(g_fonts.medium));
 	dl->AddText(ImVec2(p.x + 48, ty - 1), Col(pal::Text), title);
 	ImGui::PopFont();
 	ImGui::SetCursorScreenPos(ImVec2(p.x + 48, ty + th + 2));
-	ImGui::PushFont(g_fonts.tiny);
+	ImGui::PushFont(UiFont(g_fonts.tiny));
 	TextWrapped(pal::Text3, hint, textW);
 	ImGui::PopFont();
 	return Snap(ImVec2(p.x + w - controlW, p.y + (rowH - controlH) * 0.5f));
@@ -1629,7 +1669,7 @@ static ImVec2 SettingRow(ImVec2 p, float w, const char *icon, const char *title,
 static void InfoRow(const char *k, const char *v, ImU32 col, float x)
 {
 	float y = ImGui::GetCursorPosY(), x0 = ImGui::GetCursorPosX();
-	ImGui::PushFont(g_fonts.tiny);
+	ImGui::PushFont(UiFont(g_fonts.tiny));
 	TextColored(pal::Text3, k);
 	ImGui::SetCursorPos(ImVec2(x, y));
 	TextColored(col, v);
@@ -1639,79 +1679,94 @@ static void InfoRow(const char *k, const char *v, ImU32 col, float x)
 
 static void DrawSettingsPage()
 {
-	PageHeader(kTabs[TAB_SETTINGS]);
+	PageHeader(TabText(TAB_SETTINGS));
 	float w = ImGui::GetContentRegionAvail().x;
 	float left = (float)(int)(w * 0.58f), right = w - left - 14;
 	ImVec2 p = Snap(ImGui::GetCursorScreenPos());
 	ImDrawList *dl = ImGui::GetWindowDrawList();
-	const float rowH = 72, leftH = 5 * rowH + 20, rightH = leftH;
+	const float rowH = 72, leftH = 5 * rowH + 20, rightH = 312;
 	Surface(dl, p, ImVec2(p.x + left, p.y + leftH), 8.0f, pal::Panel);
 	Surface(dl, ImVec2(p.x + left + 14, p.y), ImVec2(p.x + w, p.y + rightH), 8.0f, pal::Panel);
 
 	float iw = left - 40;
 	ImVec2 r = ImVec2(p.x + 20, p.y + 10);
+	ImGui::SetCursorScreenPos(SettingRow(r, iw, ICON_SETTINGS, UiText("Язык", "\xD3\xEF\xD1\xD4", "Language"),
+	                                      UiText("Язык меню интерфейса.", "\xC3\xE6\xB0\xE5\xBD\xE7\xC3\xE6\xD3\xEF\xD1\xD4\xA1\xA3", "Menu interface language."), 224, 32));
+	if (Button("##language_ru", nullptr, "Русский", g_ui.language == 0, 80) && g_ui.language != 0) {
+		g_ui.language = 0;
+		g_ini.SetLanguage(false);
+		SaveUiConfig();
+	}
+	ImGui::SameLine(0, 4);
+	if (Button("##language_zh", nullptr, UiChinese("\xD6\xD0\xCE\xC4", "ZH"), g_ui.language == 1, 58, g_fonts.body) && g_ui.language != 1) {
+		g_ui.language = 1;
+		SaveUiConfig();
+	}
+	ImGui::SameLine(0, 4);
+	if (Button("##language_en", nullptr, "English", g_ui.language == 2, 68) && g_ui.language != 2) {
+		g_ui.language = 2;
+		g_ini.SetLanguage(true);
+		SaveUiConfig();
+	}
+	dl->AddLine(ImVec2(r.x, r.y + rowH + 0.5f), ImVec2(r.x + iw, r.y + rowH + 0.5f), Col(pal::Line));
+	r.y += rowH;
 	char keyName[64] = "?";
-	if (g_captureKey) strcpy_s(keyName, Tr("Нажми клавишу…", "Press a key..."));
+	if (g_captureKey) strcpy_s(keyName, UiText("Нажми клавишу…", "\xB0\xB4\xCF\xC2\xB0\xB4\xBC\xFC\xA1\xAD", "Press a key…"));
 	else if (!GetKeyNameTextA(MapVirtualKeyA(g_ui.key, MAPVK_VK_TO_VSC) << 16, keyName, sizeof(keyName))) sprintf_s(keyName, "0x%02X", g_ui.key);
-	ImGui::SetCursorScreenPos(SettingRow(r, iw, ICON_KEYBOARD, Tr("Клавиша меню", "Menu key"), Tr("Открывает и закрывает меню. Esc тоже закрывает.", "Opens and closes the menu. Esc also closes."), 144, 32));
+	ImGui::SetCursorScreenPos(SettingRow(r, iw, ICON_KEYBOARD, UiText("Клавиша меню", "\xB2\xCB\xB5\xA5\xB0\xB4\xBC\xFC", "Menu key"),
+	                                      UiText("Открывает и закрывает меню. Esc тоже закрывает.", "\xB4\xF2\xBF\xAA\xBB\xF2\xB9\xD8\xB1\xD5\xC3\xE6\xB0\xE5\xA1\xA3""Esc \xD2\xB2\xBF\xC9\xB9\xD8\xB1\xD5\xA1\xA3", "Opens and closes the panel. Esc also closes it."), 144, 32));
 	if (Button("##key", nullptr, keyName, g_captureKey, 144)) g_captureKey = !g_captureKey;
 	dl->AddLine(ImVec2(r.x, r.y + rowH + 0.5f), ImVec2(r.x + iw, r.y + rowH + 0.5f), Col(pal::Line));
 
 	r.y += rowH;
-	ImGui::SetCursorScreenPos(SettingRow(r, iw, ICON_SUN_MOON, Tr("Вуаль фона", "Background dim"), Tr("Насколько плотно дымка приглушает акварельный фон за меню.", "How strongly the dark veil dims the background art."), 200, 20));
+	ImGui::SetCursorScreenPos(SettingRow(r, iw, ICON_SUN_MOON, UiText("Вуаль фона", "\xB1\xB3\xBE\xB0\xD5\xDA\xD5\xD6", "Background veil"),
+	                                      UiText("Насколько плотно дымка приглушает акварельный фон за меню.", "\xB1\xB3\xBE\xB0\xD5\xDA\xD5\xD6\xB6\xD4\xCB\xAE\xB2\xCA\xB1\xB3\xBE\xB0\xB5\xC4\xD1\xB9\xB0\xB5\xB3\xCC\xB6\xC8\xA1\xA3", "How strongly the veil darkens the watercolor background."), 200, 20));
 	SliderInt("##dim", &g_ui.dim, 0, 100, "%d%%", 200);
 	if (ImGui::IsItemDeactivated()) SaveUiConfig();
 	dl->AddLine(ImVec2(r.x, r.y + rowH + 0.5f), ImVec2(r.x + iw, r.y + rowH + 0.5f), Col(pal::Line));
 
 	r.y += rowH;
-	ImGui::SetCursorScreenPos(SettingRow(r, iw, ICON_MONITOR, Tr("Телеметрия в углу экрана", "Corner telemetry HUD"), Tr("Компактная полоска FPS · ms · CPU · GPU справа сверху.", "Compact FPS · ms · CPU · GPU strip in the top-right corner."), 36, 20));
+	ImGui::SetCursorScreenPos(SettingRow(r, iw, ICON_MONITOR, UiText("Телеметрия в углу экрана", "\xC6\xC1\xC4\xBB\xBD\xC7\xC2\xE4\xD2\xA3\xB2\xE2", "Corner telemetry"),
+	                                      UiText("Компактная полоска FPS · ms · CPU · GPU справа сверху.", "\xD3\xD2\xC9\xCF\xBD\xC7\xCF\xD4\xCA\xBE FPS\xA1\xA2\xBA\xC1\xC3\xEB\xA1\xA2""CPU \xBA\xCD GPU \xB5\xC4\xBD\xF4\xB4\xD5\xD0\xC5\xCF\xA2\xCC\xF5\xA1\xA3", "Compact FPS · ms · CPU · GPU strip in the top-right corner."), 36, 20));
 	if (Toggle("##fpsov", &g_ui.fpsOverlay)) SaveUiConfig();
 	dl->AddLine(ImVec2(r.x, r.y + rowH + 0.5f), ImVec2(r.x + iw, r.y + rowH + 0.5f), Col(pal::Line));
 
 	r.y += rowH;
-	ImGui::SetCursorScreenPos(SettingRow(r, iw, ICON_TIMER, Tr("Обновление счётчика", "Counter refresh"), Tr("Как часто обновляются цифры FPS, CPU и GPU (читаемость).", "How often FPS, CPU, and GPU readouts update."), 200, 20));
-	SliderInt("##hudhz", &g_ui.overlayRefreshMs, 200, 1000, Tr("%d мс", "%d ms"), 200);
+	ImGui::SetCursorScreenPos(SettingRow(r, iw, ICON_TIMER, UiText("Обновление счётчика", "\xBC\xC6\xCA\xFD\xC6\xF7\xCB\xA2\xD0\xC2", "Counter refresh"),
+	                                      UiText("Как часто обновляются цифры FPS, CPU и GPU (читаемость).", "FPS\xA1\xA2""CPU \xBA\xCD GPU \xCA\xFD\xD6\xB5\xB5\xC4\xCB\xA2\xD0\xC2\xBC\xE4\xB8\xF4\xA1\xA3", "How often FPS, CPU and GPU values are refreshed."), 200, 20));
+	SliderInt("##hudhz", &g_ui.overlayRefreshMs, 200, 1000, UiText("%d мс", "%d \xBA\xC1\xC3\xEB", "%d ms"), 200);
 	if (ImGui::IsItemDeactivated()) SaveUiConfig();
 	dl->AddLine(ImVec2(r.x, r.y + rowH + 0.5f), ImVec2(r.x + iw, r.y + rowH + 0.5f), Col(pal::Line));
 
-	r.y += rowH;
-	static const char *const langs[] = { "Русский", "English" };
-	int langIdx = g_english ? 1 : 0;
-	ImGui::SetCursorScreenPos(SettingRow(r, iw, ICON_TYPE, Tr("Язык / Language", "Language"), Tr("Переводит меню и перезаписывает пояснения в .ini.", "Translates the menu and rewrites .ini comments."), 176, 32));
-	if (Segmented("lang", langs, 2, &langIdx)) {
-		g_ini.SetLanguage(langIdx == 1);
-		ShowToast(langIdx == 1 ? "Switched to English (.ini updated)" : "Язык: Русский (.ini обновлён)");
-	}
-
 	ImGui::SetCursorScreenPos(ImVec2(p.x + left + 34, p.y + 20));
 	ImGui::BeginGroup();
-	ImGui::PushFont(g_fonts.medium);
-	TextColored(pal::Text, Tr("О плагине", "About"));
+	ImGui::PushFont(UiFont(g_fonts.medium));
+	TextColored(pal::Text, UiText("О плагине", "\xB9\xD8\xD3\xDA\xB2\xE5\xBC\xFE", "About the plugin"));
 	ImGui::PopFont();
 	ImGui::Dummy(ImVec2(0, 6));
 	float vx = ImGui::GetCursorPosX() + 118;
-	InfoRow(Tr("Плагин", "Plugin"), PLUGIN_NAME " " PLUGIN_VERSION, pal::Text, vx);
+	InfoRow(UiText("Плагин", "\xB2\xE5\xBC\xFE", "Plugin"), PLUGIN_NAME " " PLUGIN_VERSION, pal::Text, vx);
 	{
 		float y = ImGui::GetCursorPosY(), x0 = ImGui::GetCursorPosX();
-		ImGui::PushFont(g_fonts.tiny);
-		TextColored(pal::Text3, Tr("Разработчик", "Author"));
+		ImGui::PushFont(UiFont(g_fonts.tiny));
+		TextColored(pal::Text3, UiText("Разработчик", "\xBF\xAA\xB7\xA2\xD5\xDF", "Developer"));
 		ImVec2 at = ImGui::GetWindowPos();
 		AuthorLink(ImVec2(at.x + vx - ImGui::GetScrollX(), at.y + y - ImGui::GetScrollY()), "", pal::Text);
 		ImGui::PopFont();
 		ImGui::SetCursorPos(ImVec2(x0, y + 26));
 	}
-	InfoRow("GTA SA", IsGta10US() ? "1.0 US" : Tr("не 1.0 US", "not 1.0 US"), IsGta10US() ? pal::Ok : pal::Warn, vx);
-	InfoRow("SA-MP", SampVersionName() ? SampVersionName() : (GetModuleHandleA("samp.dll") ? Tr("неизвестная версия", "unknown version") : Tr("не загружен", "not loaded")),
+	InfoRow("GTA SA", IsGta10US() ? "1.0 US" : UiText("не 1.0 US", "\xB7\xC7 1.0 US", "not 1.0 US"), IsGta10US() ? pal::Ok : pal::Warn, vx);
+	InfoRow("SA-MP", SampVersionName() ? SampVersionName() : (GetModuleHandleA("samp.dll") ? UiText("неизвестная версия", "\xCE\xB4\xD6\xAA\xB0\xE6\xB1\xBE", "unknown version") : UiText("не загружен", "\xCE\xB4\xBC\xD3\xD4\xD8", "not loaded")),
 	        g_samp ? pal::Ok : pal::Warn, vx);
-	InfoRow("SAMPFUNCS", GetModuleHandleA("SAMPFUNCS.asi") ? Tr("активен", "active") : Tr("нет", "no"), pal::Text2, vx);
-	InfoRow("MoonLoader", GetModuleHandleA("MoonLoader.asi") ? Tr("активен", "active") : Tr("нет", "no"), pal::Text2, vx);
+	InfoRow("SAMPFUNCS", GetModuleHandleA("SAMPFUNCS.asi") ? UiText("активен", "\xD2\xD1\xC6\xF4\xD3\xC3", "active") : UiText("нет", "\xCE\xDE", "not found"), pal::Text2, vx);
+	InfoRow("MoonLoader", GetModuleHandleA("MoonLoader.asi") ? UiText("активен", "\xD2\xD1\xC6\xF4\xD3\xC3", "active") : UiText("нет", "\xCE\xDE", "not found"), pal::Text2, vx);
 	char d3d[MAX_PATH] = "";
 	HMODULE d3d9 = GetModuleHandleA("d3d9.dll");
 	if (d3d9) GetModuleFileNameA(d3d9, d3d, MAX_PATH);
 	bool local = d3d9 && !_strnicmp(d3d, g_dir, strlen(g_dir));
-	InfoRow("d3d9.dll", local ? Tr("DXVK (локальный)", "DXVK (local)") : Tr("системный", "system"), pal::Text2, vx);
+	InfoRow("d3d9.dll", local ? UiText("DXVK (локальный)", "DXVK\xA3\xA8\xB1\xBE\xB5\xD8\xA3\xA9", "DXVK (local)") : UiText("системный", "\xCF\xB5\xCD\xB3", "system"), pal::Text2, vx);
 	ImGui::Dummy(ImVec2(0, 6));
-	if (Button("##ini", ICON_FILE_COG, Tr("Открыть " PLUGIN_NAME ".ini", "Open " PLUGIN_NAME ".ini"), false, right - 40)) {
+	if (Button("##ini", ICON_FILE_COG, UiText("Открыть " PLUGIN_NAME ".ini", "\xB4\xF2\xBF\xAA " PLUGIN_NAME ".ini", "Open " PLUGIN_NAME ".ini"), false, right - 40)) {
 		char ini[MAX_PATH];
 		sprintf_s(ini, "%s\\" PLUGIN_NAME ".ini", g_dir);
 		ShellExecuteA(nullptr, "open", ini, nullptr, nullptr, SW_SHOWNORMAL);
@@ -1813,7 +1868,7 @@ void DrawFpsOverlay()
 	if (g_frames.gpu >= 0.0f) sprintf_s(gpuStr, "%3.0f%%", g_frames.gpu);
 	else strcpy_s(gpuStr, "  — ");
 
-	ImGui::PushFont(g_fonts.mono);
+	ImGui::PushFont(UiFont(g_fonts.mono));
 	const float charW = ImGui::CalcTextSize("0").x;
 	const float fh = ImGui::GetFontSize();
 	ImGui::PopFont();
@@ -1839,7 +1894,7 @@ void DrawFpsOverlay()
 	float x = p.x + padX;
 	float ty = (float)(int)(p.y + (h - fh) * 0.5f);
 
-	ImGui::PushFont(g_fonts.mono);
+	ImGui::PushFont(UiFont(g_fonts.mono));
 	dl->AddText(Snap(ImVec2(x, ty)), pal::Text, fpsStr);
 	x += wFps + 4;
 	dl->AddText(Snap(ImVec2(x, ty)), pal::Accent, "FPS");
