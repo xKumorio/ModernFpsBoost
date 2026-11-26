@@ -264,6 +264,8 @@ int main(int argc, char **argv)
 	if (char *slash = strrchr(g_dir, '\\')) *slash = 0;
 	g_mainThread = GetCurrentThreadId();
 	g_ini.Open();
+	g_ui.language = argc > 6 ? atoi(argv[6]) : g_ini.Int("Menu", "language", g_english ? 2 : 0);
+	if (g_ui.language != 1) g_english = g_ui.language == 2;
 	FixesLoad(g_ini);
 	int n;
 	Fix *const *fixes = FixList(n);

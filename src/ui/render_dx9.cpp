@@ -4,6 +4,7 @@
 
 #include <d3d9.h>
 #include <stdint.h>
+#include <string.h>
 #include <vector>
 #include <wincodec.h>
 
@@ -30,21 +31,40 @@ static D3DCOLOR ToD3DColor(ImU32 color)
 	return (color & 0xFF00FF00) | ((color & 0xFF0000) >> 16) | ((color & 0xFF) << 16);
 }
 
-static IDirect3DTexture9 *CreateTexture(const uint8_t *rgba, int width, int height, bool swapRB)
+static IDirect3DTexture9 *CreateTexture(const uint8_t *pixels, int width, int height, bool alphaOnly, const char *purpose)
 {
-	if (!g_device || !rgba || width <= 0 || height <= 0) return nullptr;
-	IDirect3DTexture9 *tex = nullptr;
-	if (FAILED(g_device->CreateTexture(width, height, 1, 0, D3DFMT_A8R8G8B8, D3DPOOL_MANAGED, &tex, nullptr)) || !tex)
+	if (!g_device || !pixels || width <= 0 || height <= 0) {
+		Log("Menu: %s texture invalid input (device=%p pixels=%p size=%dx%d)", purpose, g_device, pixels, width, height);
 		return nullptr;
+	}
+	IDirect3DTexture9 *tex = nullptr;
+	HRESULT hr = g_device->CreateTexture(width, height, 1, 0, D3DFMT_A8R8G8B8, D3DPOOL_MANAGED, &tex, nullptr);
+	if (FAILED(hr) || !tex) {
+		Log("Menu: %s texture CreateTexture failed (size=%dx%d hr=0x%08lX)", purpose, width, height, hr);
+		if (tex) tex->Release();
+		return nullptr;
+	}
 	D3DLOCKED_RECT locked;
-	if (FAILED(tex->LockRect(0, &locked, nullptr, 0))) {
+	hr = tex->LockRect(0, &locked, nullptr, 0);
+	if (FAILED(hr)) {
+		Log("Menu: %s texture LockRect failed (size=%dx%d hr=0x%08lX)", purpose, width, height, hr);
+		tex->Release();
+		return nullptr;
+	}
+	if (!locked.pBits || locked.Pitch <= 0 || (size_t)locked.Pitch / sizeof(uint32_t) < (size_t)width) {
+		Log("Menu: %s invalid locked texture (size=%dx%d pitch=%d)", purpose, width, height, locked.Pitch);
+		tex->UnlockRect(0);
 		tex->Release();
 		return nullptr;
 	}
 	for (int y = 0; y < height; ++y) {
-		auto src = reinterpret_cast<const uint32_t *>(rgba + y * width * 4);
-		auto dst = reinterpret_cast<uint32_t *>(static_cast<uint8_t *>(locked.pBits) + y * locked.Pitch);
-		for (int x = 0; x < width; ++x) dst[x] = swapRB ? ToD3DColor(src[x]) : src[x];
+		auto dst = reinterpret_cast<uint32_t *>(static_cast<uint8_t *>(locked.pBits) + (size_t)y * locked.Pitch);
+		if (alphaOnly) {
+			const uint8_t *src = pixels + (size_t)y * width;
+			for (int x = 0; x < width; ++x) dst[x] = 0x00ffffffu | ((uint32_t)src[x] << 24);
+		} else {
+			memcpy(dst, pixels + (size_t)y * width * 4, (size_t)width * 4);
+		}
 	}
 	tex->UnlockRect(0);
 	return tex;
@@ -54,13 +74,24 @@ bool RenderInit(IDirect3DDevice9 *device)
 {
 	g_device = device;
 	ImGuiIO &io = ImGui::GetIO();
-	unsigned char *pixels;
-	int width, height;
-	io.Fonts->GetTexDataAsRGBA32(&pixels, &width, &height);
-	g_fontTexture = CreateTexture(pixels, width, height, true);
+	unsigned char *pixels = nullptr;
+	int width = 0, height = 0, bpp = 0;
+	io.Fonts->GetTexDataAsAlpha8(&pixels, &width, &height, &bpp);
+	const unsigned long long bytes = (pixels && width > 0 && height > 0) ? (unsigned long long)width * (unsigned long long)height : 0;
+	Log("Menu: font atlas (device=%p pixels=%p size=%dx%d bpp=%d bytes=%llu)", device, pixels, width, height, bpp, bytes);
+	g_fontTexture = CreateTexture(pixels, width, height, true, "font atlas");
 	if (!g_fontTexture) return false;
 	io.Fonts->SetTexID((ImTextureID)(uintptr_t)g_fontTexture);
 	return true;
+}
+
+void RenderShutdown()
+{
+	if (ImGui::GetCurrentContext()) ImGui::GetIO().Fonts->SetTexID(0);
+	if (g_savedState) { g_savedState->Release(); g_savedState = nullptr; }
+	if (g_imguiState) { g_imguiState->Release(); g_imguiState = nullptr; }
+	if (g_fontTexture) { g_fontTexture->Release(); g_fontTexture = nullptr; }
+	g_device = nullptr;
 }
 
 void RenderOnLostDevice()
@@ -100,7 +131,7 @@ IDirect3DTexture9 *LoadResourceTexture(int id, int &width, int &height)
 		if (SUCCEEDED(converter->GetSize(&w, &hgt)) && w > 0 && hgt > 0 && w <= 4096 && hgt <= 4096) {
 			std::vector<uint8_t> pixels((size_t)w * hgt * 4);
 			if (SUCCEEDED(converter->CopyPixels(nullptr, w * 4, (UINT)pixels.size(), pixels.data()))) {
-				tex = CreateTexture(pixels.data(), (int)w, (int)hgt, false);
+				tex = CreateTexture(pixels.data(), (int)w, (int)hgt, false, "resource");
 				width = (int)w;
 				height = (int)hgt;
 			}

@@ -4,3 +4,4 @@ build/
 __pycache__/
 ref/
 *_d3d9.log
+build-upstream-v1.0.8/

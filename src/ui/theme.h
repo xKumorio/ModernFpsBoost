@@ -45,7 +45,7 @@ void Icon(ImDrawList *dl, ImVec2 c, const char *icon, ImFont *font, ImU32 col);
 void IconTile(ImDrawList *dl, ImVec2 a, float size, const char *icon, ImFont *font, ImU32 tint);
 
 bool Toggle(const char *id, bool *v);
-bool Button(const char *id, const char *icon, const char *label, bool primary, float width = 0);
+bool Button(const char *id, const char *icon, const char *label, bool primary, float width = 0, ImFont *font = nullptr);
 bool Segmented(const char *id, const char *const *items, int count, int *current);
 bool SliderInt(const char *id, int *v, int min, int max, const char *fmt, float width);
 bool SliderFloat(const char *id, float *v, float min, float max, const char *fmt, float width);

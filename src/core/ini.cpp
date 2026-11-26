@@ -105,7 +105,7 @@ static std::vector<IniEntry> ParseEntries(const std::string &text)
 		if (eq == std::string::npos) continue;
 		std::string key = Trim(line.data(), eq);
 		std::string val = Trim(line.data() + eq + 1, line.size() - eq - 1);
-		if (!key.empty()) entries.push_back({ std::move(sec), std::move(key), std::move(val) });
+		if (!key.empty()) entries.push_back({ sec, std::move(key), std::move(val) });
 	}
 	return entries;
 }
