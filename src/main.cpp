@@ -35,24 +35,35 @@ static DWORD WINAPI AttachThread(LPVOID)
 
 // The plugin's file keeps the author's name: renamed, it is renamed back when the game loads it (a
 // loaded DLL's file can be renamed, not deleted). Another file already there under that name: left as is.
-static void KeepFileName(HINSTANCE inst)
+// This operation is deferred to a background thread to avoid blocking other ASI plugins during DllMain.
+static DWORD WINAPI RenameThread(LPVOID param)
 {
+	HINSTANCE inst = (HINSTANCE)param;
 	wchar_t cur[MAX_PATH], want[MAX_PATH];
 	DWORD n = GetModuleFileNameW(inst, cur, MAX_PATH);
-	if (!n || n >= MAX_PATH) return;
+	if (!n || n >= MAX_PATH) return 0;
 	wchar_t *name = wcsrchr(cur, L'\\');
 	name = name ? name + 1 : cur;
-	if (!_wcsicmp(name, PLUGIN_FILE_NAME)) return;
+	if (!_wcsicmp(name, PLUGIN_FILE_NAME)) return 0;
 	size_t dir = name - cur;
-	if (dir + wcslen(PLUGIN_FILE_NAME) >= MAX_PATH) return;
+	if (dir + wcslen(PLUGIN_FILE_NAME) >= MAX_PATH) return 0;
 	wcsncpy_s(want, cur, dir);
 	wcscat_s(want, PLUGIN_FILE_NAME);
 	if (GetFileAttributesW(want) != INVALID_FILE_ATTRIBUTES) {
 		Log("The plugin file was renamed and %ls already exists - not renamed back", PLUGIN_FILE_NAME);
-		return;
+		return 0;
 	}
+	// Delay to allow all ASI plugins to load first
+	Sleep(500);
 	if (MoveFileExW(cur, want, 0)) Log("The plugin file was renamed - renamed back to %ls", PLUGIN_FILE_NAME);
 	else Log("The plugin file was renamed - renaming it back failed (error %lu)", GetLastError());
+	return 0;
+}
+
+static void KeepFileName(HINSTANCE inst)
+{
+	// Defer file renaming to background thread to avoid blocking ASI loader during DllMain
+	CloseHandle(CreateThread(nullptr, 0, RenameThread, inst, 0, nullptr));
 }
 
 BOOL WINAPI DllMain(HINSTANCE inst, DWORD reason, LPVOID)
