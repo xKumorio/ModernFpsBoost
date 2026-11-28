@@ -4,9 +4,12 @@
 
 static bool CheckGta10US()
 {
-	// CCollision::Init starts with push 0x258 in 1.0 US; outside gta_sa.exe (tools/preview) the page is not there
+	// Check standard GTA SA 1.0 US CRT signature (0x82457C / 0x8245BC == 0x94BF, untouched by
+	// fastman92 Limit Adjuster / Arizona RP runtime patches) with fallback to CCollision::Init.
 	static const BYTE sig[] = { 0x68, 0x58, 0x02, 0x00, 0x00 };
 	__try {
+		if (*(const DWORD *)0x0082457C == 0x94BFu || *(const DWORD *)0x008245BC == 0x94BFu)
+			return true;
 		return !memcmp((void *)0x416260, sig, sizeof(sig));
 	} __except (EXCEPTION_EXECUTE_HANDLER) {
 		return false;
