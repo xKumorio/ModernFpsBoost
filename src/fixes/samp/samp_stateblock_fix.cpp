@@ -63,12 +63,17 @@ static HRESULT CreateTargetedUiStateBlock(IDirect3DDevice9 *dev, IDirect3DStateB
 		dev->SetRenderState(D3DRS_CLIPPING, TRUE);
 		dev->SetRenderState(D3DRS_LIGHTING, FALSE);
 		dev->SetRenderState(D3DRS_COLORVERTEX, TRUE);
+		dev->SetRenderState(D3DRS_DIFFUSEMATERIALSOURCE, D3DMCS_COLOR1);
+		dev->SetRenderState(D3DRS_SPECULARMATERIALSOURCE, D3DMCS_COLOR2);
+		dev->SetRenderState(D3DRS_AMBIENTMATERIALSOURCE, D3DMCS_MATERIAL);
+		dev->SetRenderState(D3DRS_EMISSIVEMATERIALSOURCE, D3DMCS_MATERIAL);
 		dev->SetRenderState(D3DRS_VERTEXBLEND, D3DVBF_DISABLE);
 		dev->SetRenderState(D3DRS_CLIPPLANEENABLE, 0);
 		dev->SetRenderState(D3DRS_INDEXEDVERTEXBLENDENABLE, FALSE);
 		dev->SetRenderState(D3DRS_COLORWRITEENABLE, 0x0000000F);
 		dev->SetRenderState(D3DRS_BLENDOP, D3DBLENDOP_ADD);
 		dev->SetRenderState(D3DRS_SCISSORTESTENABLE, FALSE);
+		dev->SetRenderState(D3DRS_ENABLEADAPTIVETESSELLATION, FALSE);
 		dev->SetRenderState(D3DRS_TWOSIDEDSTENCILMODE, FALSE);
 		dev->SetRenderState(D3DRS_SRGBWRITEENABLE, FALSE);
 		dev->SetRenderState(D3DRS_SEPARATEALPHABLENDENABLE, FALSE);
@@ -76,6 +81,8 @@ static HRESULT CreateTargetedUiStateBlock(IDirect3DDevice9 *dev, IDirect3DStateB
 		dev->SetRenderState(D3DRS_DESTBLENDALPHA, D3DBLEND_ZERO);
 		dev->SetRenderState(D3DRS_BLENDOPALPHA, D3DBLENDOP_ADD);
 		dev->SetNPatchMode(0.0f);
+		D3DMATERIAL9 mat = {};
+		dev->SetMaterial(&mat);
 
 		// Texture stage 0 & 1 states
 		dev->SetTextureStageState(0, D3DTSS_COLOROP, D3DTOP_MODULATE);

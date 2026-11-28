@@ -245,6 +245,8 @@ static bool __cdecl hkProcessSphereTriangle(const ColSphere *sphere, const Compr
                                             const ColTriangle *tri, const ColTrianglePlane *plane,
                                             ColPoint *colPoint, float *maxTouchDistSq)
 {
+	// A hit must strictly improve a squared distance; a zero distance is already optimal.
+	if (*maxTouchDistSq == 0.0f) return false;
 	// Fast plane-distance reject in XMM registers (rejects >90% of tris before touching vertices)
 	const __m128 pl = _mm_mul_ps(UnpackInt16x4(plane), _mm_set_ps(kInv128, kInv4096, kInv4096, kInv4096));
 	const __m128 sp = _mm_loadu_ps(&sphere->center.x); // [cx, cy, cz, r]

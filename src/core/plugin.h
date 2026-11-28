@@ -12,7 +12,7 @@
 #define PLUGIN_OLD_NAME "OptimizeFpsByInquisitorGang" // before 1.0: its ini is taken over
 #define PLUGIN_AUTHOR "Softik Inquisitor"
 #define PLUGIN_AUTHOR_URL "https://vk.ru/miurawr"
-#define PLUGIN_VERSION "1.0.9"
+#define PLUGIN_VERSION "1.0.10"
 
 extern HMODULE g_module;   // this .asi
 extern char    g_dir[MAX_PATH]; // folder of the .asi (the game folder)

@@ -29,6 +29,45 @@ static const DWORD kGetIsTouchingEnt   = 0x5343F0;
 static const DWORD kGetIsTouchingPt    = 0x5344B0;
 static const DWORD kModelInfoPtrs      = 0xA9B0C8;
 
+using SphereContact = bool (__cdecl *)(const ColSphere *, const ColSphere *, void *, float *);
+static const DWORD kProcessSphereSphere = 0x416450;
+
+static bool __cdecl ProcessSpherePair(const ColSphere *a, const ColSphere *b, void *contact, float *closest)
+{
+	const auto original = reinterpret_cast<SphereContact>(kProcessSphereSphere);
+	if (*(const DWORD *)kProcessSphereSphere != 0x5328ec83u)
+		return original(a, b, contact, closest);
+	if (*closest == 0.0f) return false;
+	const __m128 av = _mm_loadu_ps(&a->x), bv = _mm_loadu_ps(&b->x);
+	const __m128 delta = _mm_sub_ps(av, bv);
+	const __m128 sq = _mm_mul_ps(delta, delta);
+	const float xy = _mm_cvtss_f32(_mm_add_ss(sq, _mm_shuffle_ps(sq, sq, 0x55)));
+	const float distanceSq = xy + _mm_cvtss_f32(_mm_movehl_ps(sq, sq));
+	// Allow more than the rounding error of the float dot product and native x87
+	// sqrt/subtraction. Tangencies and all possible hits take the native path.
+	const float inflated = (a->r + b->r) * 1.00002f + 0.0001f;
+	if (distanceSq > inflated * inflated && a->r >= 0.f && b->r >= 0.f)
+		return false;
+	return original(a, b, contact, closest);
+}
+
+static unsigned InstallSpherePairFilter()
+{
+	uint32_t hash = 2166136261u;
+	for (DWORD at = kProcessSphereSphere; at < 0x4165A8; ++at)
+		hash = (hash ^ *(const BYTE *)at) * 16777619u;
+	if (hash != 0xf40b4700u) return 0;
+	unsigned installed = 0;
+	for (DWORD at : {0x418D60u, 0x419173u}) {
+		BYTE before[5] = {0xe8}, after[5] = {0xe8};
+		*(int32_t *)(before + 1) = Rel32((BYTE *)at, (void *)kProcessSphereSphere);
+		*(int32_t *)(after + 1) = Rel32((BYTE *)at, ProcessSpherePair);
+		if (PatchBytes(at, before, after, sizeof(after))) ++installed;
+	}
+	Log("ColBoxSSE: %u/2 vehicle sphere pair filters", installed);
+	return installed;
+}
+
 static bool __cdecl hkTestSphereBox(const ColSphere *s, const ColBox *b)
 {
 	__m128 c = _mm_loadu_ps(&s->x);          // [x, y, z, r]
@@ -151,7 +190,8 @@ static void Apply()
 		*(int32_t *)(jmp + 1) = Rel32((BYTE *)kGetIsTouchingPt, hkGetIsTouchingPt);
 		if (PatchBytes(kGetIsTouchingPt, nullptr, jmp, 5)) done++;
 	}
-	g_fixColBoxSSE.active = done > 0;
+	const unsigned pairFilters = InstallSpherePairFilter();
+	g_fixColBoxSSE.active = done > 0 || pairFilters > 0;
 	Log("ColBoxSSE: %d/3 (TestSphereBox + GetIsTouching on SSE2)", done);
 }
 

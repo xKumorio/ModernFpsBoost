@@ -17,7 +17,8 @@ static const DWORD kProcessLoadingChannel = 0x40E170;
 static BYTE *const kChannels = (BYTE *)0x8E4A60;     // tStreamingChannel ms_channel[2], 0x98 each
 static const BYTE *const kLoadingBig = (BYTE *)0x8E4A58; // ms_bLoadingBigModel
 static const BYTE *const kInfo = (BYTE *)0x8E4CC0;   // CStreamingInfo ms_aInfoForModel[], 20 bytes each
-enum { kChannelSize = 0x98, kIds = 16, kStatusOff = 0x80, kInfoSize = 20, kInfoCdSize = 0xC, kSector = 2048, kReading = 1, kIdle = 0 };
+static const int *const kCurrArea = (const int *)0xB72914; // CGame::currArea (0 = exterior)
+enum { kChannelSize = 0x98, kIds = 16, kStatusOff = 0x80, kInfoSize = 20, kInfoCdSize = 0xC, kSector = 2048, kIdle = 0, kReading = 1, kFinishing = 2 };
 
 static int g_budgetKb = 96;
 static DWORD g_split, g_whole;
@@ -27,7 +28,7 @@ static bool __cdecl hkProcessLoadingChannel(int ch)
 	auto process = (bool(__cdecl *)(int))kProcessLoadingChannel;
 	int *ids = (int *)(kChannels + ch * kChannelSize);
 	int *status = (int *)((BYTE *)ids + kStatusOff);
-	if (*kLoadingBig || *status != kReading) return process(ch);
+	if (*kLoadingBig || *status != kReading || *kCurrArea != 0) return process(ch);
 
 	int later[kIds], laterN = 0, kept = 0;
 	DWORD sectors = 0, budget = (DWORD)g_budgetKb * 1024 / kSector;
@@ -50,6 +51,11 @@ static bool __cdecl hkProcessLoadingChannel(int ch)
 		return process(ch);
 	}
 	bool done = process(ch);
+	// If a model in this slice entered LOADSTATE_FINISHING (status=2), finish it now before
+	// restoring the deferred models — otherwise the next ProcessLoadingChannel call would take
+	// the status==2 fast path, reset status to IDLE, and strand all deferred models in READING forever.
+	if (done && *status == kFinishing)
+		done = process(ch);
 	for (int i = 0; i < kIds; i++)
 		if (later[i] >= 0) ids[i] = later[i];
 	// the data is still in the channel's buffer: "reading" keeps the game from starting a new read into it
