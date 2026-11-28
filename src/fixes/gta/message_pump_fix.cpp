@@ -22,6 +22,7 @@ static BOOL(WINAPI *oPeekMessageA)(LPMSG, HWND, UINT, UINT, UINT);
 static int g_intervalMs = 3;
 static LONGLONG g_freq;
 static LONGLONG g_lastPump;
+static LONGLONG g_lastRawInput;
 static bool g_draining;
 static unsigned g_calls, g_skipped;
 
@@ -33,21 +34,31 @@ static BOOL WINAPI hkPeekMessageA(LPMSG lpMsg, HWND hWnd, UINT wMsgFilterMin, UI
 
 	g_calls++;
 
-	// Always pump immediately when unfocused, in pause menu, draining a burst, or when
-	// any keyboard/mouse-button event is pending (GetInputState is pure usermode on Win10/11).
-	if (!*(int *)kForegroundApp || *(BYTE *)kMenuActive || g_draining || GetInputState()) {
+	LARGE_INTEGER now = {};
+	// Bypass throttling while Raw Input (WM_INPUT, e.g. RawInput.asi / SensFix) is active,
+	// because GetInputState() only checks QS_KEY | QS_MOUSEBUTTON and ignores QS_RAWINPUT.
+	bool rawInputActive = false;
+	if (g_lastRawInput != 0) {
+		QueryPerformanceCounter(&now);
+		rawInputActive = (now.QuadPart - g_lastRawInput) < (g_freq * 5);
+	}
+
+	// Always pump immediately when unfocused, in pause menu, draining a burst, Raw Input is active,
+	// or any keyboard/mouse-button event is pending (GetInputState is pure usermode on Win10/11).
+	if (rawInputActive || !*(int *)kForegroundApp || *(BYTE *)kMenuActive || g_draining || GetInputState()) {
 		BOOL res = oPeekMessageA(lpMsg, hWnd, wMsgFilterMin, wMsgFilterMax, wRemoveMsg);
 		g_draining = (res != FALSE);
-		if (!res) {
-			LARGE_INTEGER now;
-			QueryPerformanceCounter(&now);
+		if (res && lpMsg && lpMsg->message == WM_INPUT) {
+			if (!now.QuadPart) QueryPerformanceCounter(&now);
+			g_lastRawInput = now.QuadPart;
+		} else if (!res) {
+			if (!now.QuadPart) QueryPerformanceCounter(&now);
 			g_lastPump = now.QuadPart;
 		}
 		return res;
 	}
 
-	LARGE_INTEGER now;
-	QueryPerformanceCounter(&now);
+	if (!now.QuadPart) QueryPerformanceCounter(&now);
 	const LONGLONG minTicks = (g_freq * g_intervalMs) / 1000;
 	if (now.QuadPart - g_lastPump < minTicks) {
 		g_skipped++;
@@ -56,7 +67,10 @@ static BOOL WINAPI hkPeekMessageA(LPMSG lpMsg, HWND hWnd, UINT wMsgFilterMin, UI
 
 	BOOL res = oPeekMessageA(lpMsg, hWnd, wMsgFilterMin, wMsgFilterMax, wRemoveMsg);
 	g_draining = (res != FALSE);
-	if (!res) g_lastPump = now.QuadPart;
+	if (res && lpMsg && lpMsg->message == WM_INPUT)
+		g_lastRawInput = now.QuadPart;
+	else if (!res)
+		g_lastPump = now.QuadPart;
 	return res;
 }
 

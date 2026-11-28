@@ -10,6 +10,8 @@
 #include "../registry.h"
 
 static const DWORD kIatSetCursorPos = 0x858300;
+static const DWORD kMouseDeltaX     = 0xB73424; // CPad::NewMouseControllerState.X
+static const DWORD kMouseDeltaY     = 0xB73428; // CPad::NewMouseControllerState.Y
 static BOOL(WINAPI *oSetCursorPos)(int, int);
 
 static int g_intervalMs = 8;
@@ -23,7 +25,8 @@ static BOOL WINAPI hkSetCursorPos(int x, int y)
 		return oSetCursorPos(x, y);
 	g_calls++;
 	const DWORD now = GetTickCount();
-	if (x == g_lastX && y == g_lastY && now - g_lastAt < (DWORD)g_intervalMs) {
+	const bool mouseMoved = (*(const float *)kMouseDeltaX != 0.0f) || (*(const float *)kMouseDeltaY != 0.0f);
+	if (!mouseMoved && x == g_lastX && y == g_lastY && now - g_lastAt < (DWORD)g_intervalMs) {
 		g_skipped++;
 		return TRUE;
 	}
